@@ -1,1 +1,2 @@
-subsample-reads/
+venv/
+*/__pycache__/
