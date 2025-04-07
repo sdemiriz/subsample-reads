@@ -4,19 +4,34 @@ from intervaltree import Interval, IntervalTree
 
 class BEDloader:
 
-    def __init__(self, in_file: str):
+    def __init__(self, in_file: str, chr_length: int):
 
         self.in_file = in_file
         self.load_bed()
-        self.create_intervaltree()
 
         self.tree = IntervalTree()
+        self.populate(chr_length=chr_length)
 
     def load_bed(self):
 
-        self.bed = pd.read_csv(self.in_file, sep="\t", header=0)
-        self.bed.columns = ["chr", "start", "end", "fraction"]
+        self.bed = pd.read_csv(
+            self.in_file,
+            sep="\t",
+            header=None,
+            names=["chr", "start", "end", "fraction"],
+            dtype={"chr": int, "start": int, "end": int, "fraction": float},
+        )
 
-    def create_intervaltree(self):
-        for row in self.bed.iterrows():
-            self.tree[row["start"], row["end"]] = row["fraction"]
+        assert (
+            len(pd.unique(self.bed["chr"])) == 1
+        ), f"Not all chr values in BED file are the same"
+
+    def populate(self, chr_length: int):
+
+        self.tree.addi(begin=0, end=chr_length, data=1.0)
+
+        for row in self.bed.itertuples():
+            self.tree.chop(begin=row[2], end=row[3])
+            self.tree.addi(begin=row[2], end=row[3], data=row[4])
+
+        self.tree = sorted(self.tree)
