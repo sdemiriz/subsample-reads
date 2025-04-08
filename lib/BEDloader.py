@@ -26,6 +26,8 @@ class BEDloader:
             len(pd.unique(self.bed["chr"])) == 1
         ), f"Not all chr values in BED file are the same"
 
+        self.contig = self.bed["chr"][0]
+
     def populate(self, chr_length: int):
 
         self.tree.addi(begin=0, end=chr_length, data=1.0)
