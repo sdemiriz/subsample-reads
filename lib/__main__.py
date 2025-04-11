@@ -2,11 +2,23 @@
 
 from lib.BEDloader import BEDloader
 from lib.BAMloader import BAMloader
-import argparse
+from lib.BAMplotter import BAMplotter
+import argparse, logging
 import numpy as np
 
 
 if __name__ == "__main__":
+
+    logger = logging.getLogger("root")
+
+    logging.basicConfig(
+        filename="log.txt",
+        level=logging.DEBUG,
+        format="{asctime} - [{levelname}]: {message}",
+        style="{",
+        datefmt="%H:%M:%S",
+    )
+    logging.info("Begin log")
 
     parser = argparse.ArgumentParser(
         prog="subsample-reads",
@@ -19,16 +31,23 @@ if __name__ == "__main__":
     parser.add_argument("-S", "--seed", required=False, default=42)
 
     args = parser.parse_args()
-
-    np.random.seed(args.seed)
+    logging.info(f"Accept arguments: {args}")
 
     in_bam = BAMloader(file=args.in_bam)
+    logging.info(f"Load input BAM file: {args.in_bam}")
+
     out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
-    bed = BEDloader(in_file=args.regions, chr_length=300_000)
+    logging.info(f"Open output BAM file: {args.out_bam}")
+
+    bed = BEDloader(in_file=args.regions, chr_length=29200000)
+    logging.info(f"Load BED file: {args.regions}")
 
     # , chr_length=bam.get_length(contig=contig))
 
+    logging.info(f"Start subsampling.")
     for interval in bed.tree:
+
+        logging.info(f"Subsample from interval: {interval}")
 
         in_bam.downsample_reads(
             out_bam=out_bam,
@@ -36,7 +55,14 @@ if __name__ == "__main__":
             start=interval.begin,
             end=interval.end,
             fraction=interval.data,
+            seed=args.seed,
         )
+
+    logging.info(f"Subsampling completed.")
 
     in_bam.bam.close()
     out_bam.bam.close()
+
+    logging.info(f"Application concluded. \n")
+
+    # BAMplotter([args.in_bam, args.out_bam], 22, 16384723, 16484723)
