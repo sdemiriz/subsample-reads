@@ -28,6 +28,10 @@ class BEDloader:
 
         self.contig = self.bed["chr"][0]
 
+        assert all(
+            self.bed["fraction"] >= 0.0 and self.bed["fraction"] <= 1.0
+        ), f"Fraction values not within [0.0. 1.0] interval"
+
     def populate(self, chr_length: int):
 
         self.tree.addi(begin=0, end=chr_length, data=1.0)
