@@ -7,9 +7,12 @@ from collections import defaultdict
 class BAMloader:
 
     def __init__(self, file: str, template=None):
-
         self.file = file
         self.load_bam(template=template)
+
+        if not self.bam.has_index():
+            print(f"Warning: No index found, indexing BAM {self.file}")
+            pysam.index(self.file)
 
         self.read_dict = defaultdict(lambda: [None, None])
         self.dropped_read_pairs = list()
@@ -107,9 +110,7 @@ class BAMloader:
         )
 
     def index(self):
-        sorted_file = f"{self.file.split('.')[0]}-sorted.{self.file.split('.')[1]}"
-        pysam.sort(self.file, "-o", sorted_file)
-        pysam.index(sorted_file)
+        pysam.index(self.file)
 
     def plot_pileup(
         self, contig: int, start: int, end: int, out: str = "bamloader-plot.png"
