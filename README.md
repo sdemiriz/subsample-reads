@@ -1,8 +1,7 @@
 # subsample-reads
+Subsample reads is a Python tool that leverages the `pysam` package to subset fractions of reads across multiple defined chromosomal regions in a single chromosome using a BED file to define said fractions.
 
-Subsample reads is a Python tool that leverages the `pysam` package to subset fractions of reads across multiple defined chromosomal regions in a single chromosome using a BED file. 
-
-Other tools that offer similar functionality such as `samtools view` or `GATK DownsampleSam` only process a single chromosomal region, require numerous command line invocations, as well as splitting and merging BAM files. `subsample-reads` reduces this burden on the user by allowing them to specify their desired subsampling pattern across an entire chromosome and outputs a single BAM file.
+Other tools that offer similar functionality such as `samtools view` or `GATK DownsampleSam` only process a single chromosomal region at a time, require numerous command line invocations, as well as the splitting and merging BAM files. `subsample-reads` simplifies this process by allowing users to specify a subsampling pattern across an entire chromosome and outputs a single processed BAM file.
 
 `subsample-reads` also takes into account paired reads that lie across user-defined region boundaries and drops paired reads when subsampling in adjacent regions if possible.
 
@@ -44,7 +43,6 @@ Note: In cases of overlapping regions, the `fraction` value of the region that i
 ---
 
 ### Execution:
-
 Executing tool with all required arguments will produce an output file with defined regions being subsetted to the specified fraction of the reads in that region.
 
 ```{python}
