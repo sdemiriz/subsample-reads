@@ -13,36 +13,36 @@ class BAMloader:
         """
 
         self.file = file
-        logging.info(f"Initialized class using file {self.file}")
+        logging.info(f"Initialize BAMloader using file {self.file}")
 
         self.load_bam(template=template)
         self.confirm_index(template=template)
 
         self.read_dict = defaultdict(lambda: [None, None])
         self.dropped_read_pairs = list()
+        logging.info(f"BAMloader initialized")
 
     def load_bam(self, template=None):
         """
         Open in write mode if a template has been provided, otherwise open in read mode
         """
-
         if template:
             self.bam = pysam.AlignmentFile(self.file, mode="wb", template=template)
             logging.info(
-                f"Initialized class using file {self.file} and template {template} in write mode"
+                f"Initialize output BAMloader from file {self.file} and template {template}"
             )
         else:
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
-            logging.info(f"Initialized class using file {self.file} in read mode")
+            logging.info(f"Initialize input BAMloader using file {self.file}")
 
     def get_length(self, contig: int):
         """
         Get length of provided contig in number of base pairs
         """
+        logging.info(f"Get length for contig {contig}")
+
         contig = str(contig)
         assert contig in self.bam.references, f"Given {contig=} not in BAM references"
-
-        logging.info(f"Getting length for contig {contig}")
 
         return self.bam.lengths[self.bam.references.index(contig)]
 
@@ -50,10 +50,13 @@ class BAMloader:
         """
         Maintain a dictionary of read pairs using the shared query_name as the key
         """
-        logging.info(f"Interval {contig}:{start}-{end}: Fetching read pairs for ")
+        current_interval = f"\tInterval {contig}:{start}-{end}:"
+        logging.info(f"{current_interval} Fetch read pairs")
 
+        non_proper_pair_count = 0
         for read in self.bam.fetch(contig=str(contig), start=start, end=end):
             if not read.is_proper_pair:
+                non_proper_pair_count += 1
                 continue
 
             qname = read.query_name
@@ -70,7 +73,7 @@ class BAMloader:
                     self.read_dict[qname][1] = read
 
         logging.info(
-            f"{len(self.read_dict)} read pairs for interval {contig}:{start}-{end}"
+            f"{current_interval} Fetch {len(self.read_dict)} read pairs and {non_proper_pair_count} non proper reads"
         )
 
     def downsample_reads(
@@ -85,9 +88,8 @@ class BAMloader:
         """
         Subsample reads inside the specified interval region based on provided fraction
         """
-        logging.info(
-            f"Interval {contig}:{start}-{end}: Subsampling {fraction} of reads using seed {seed}"
-        )
+        current_interval = f"\tInterval {contig}:{start}-{end}:"
+        logging.info(f"{current_interval} Subsample {fraction} of reads, seed {seed}")
         np.random.seed(seed)
 
         # Get paired reads within the interval
@@ -106,10 +108,7 @@ class BAMloader:
         base_size = math.ceil((1.0 - fraction) * len(all_reads_in_interval))
 
         logging.info(
-            f"Interval {contig}:{start}-{end}: Dropping a maximum of {base_size} reads out of {len(all_reads_in_interval)}"
-        )
-        logging.info(
-            f"Interval {contig}:{start}-{end}: Actual ratio of reads dropped: {base_size / len(all_reads_in_interval)}"
+            f"{current_interval} Drop {base_size} reads out of {len(all_reads_in_interval)}, ratio: {base_size / len(all_reads_in_interval)}"
         )
 
         # Get indices of reads that need to be dropped
@@ -126,9 +125,7 @@ class BAMloader:
             if i not in remove_indices
         ]
 
-        logging.info(
-            f"Interval {contig}:{start}-{end}: Keeping {len(kept_reads)} read pairs"
-        )
+        logging.info(f"{current_interval} Keep {len(kept_reads)} read pairs")
 
         # Reads to remove
         removed_reads = [
@@ -137,9 +134,7 @@ class BAMloader:
             if i in remove_indices
         ]
 
-        logging.info(
-            f"Interval {contig}:{start}-{end}: Dropping {len(removed_reads)} read pairs"
-        )
+        logging.info(f"{current_interval} Drop {len(removed_reads)} read pairs")
 
         # removed_reads += predropped_reads
 
@@ -147,20 +142,18 @@ class BAMloader:
         # for removed_read_pair in removed_reads:
         #     self.dropped_read_pairs.append(removed_read_pair[0].query_name)
 
-        logging.info(
-            f"Interval {contig}:{start}-{end}: Writing kept read pairs to output BAM"
-        )
+        logging.info(f"{current_interval} Write kept read pairs to output BAM")
         # Write kept reads to out_bam
         for read_pair in kept_reads:
             out_bam.bam.write(read=read_pair[0])
             out_bam.bam.write(read=read_pair[1])
 
-        logging.info(f"Interval {contig}:{start}-{end}: Subsampling finished.")
+        logging.info(f"{current_interval} Finish subsampling")
 
     def confirm_index(self, template):
         """
         Index file if one doesn't exist.
-        Do not index file if opening in write mode (if template provided)
+        Do not index file if opening in write mode (if template provided).
         """
         if not self.bam.has_index() and not template:
             logging.WARN(f"No index found, indexing BAM {self.file}")
