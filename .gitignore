@@ -4,3 +4,4 @@ venv/
 *.bam
 *.bam.bai
 log.txt
+slurm*.out
