@@ -1,7 +1,5 @@
 import pysam, math, logging
-import matplotlib.pyplot as plt
 import numpy as np
-from collections import defaultdict
 
 
 class BAMloader:
@@ -18,8 +16,7 @@ class BAMloader:
         self.load_bam(template=template)
         self.confirm_index(template=template)
 
-        self.read_dict = defaultdict(lambda: [None, None])
-        self.dropped_read_pairs = list()
+        self.drop_memory = set()
         logging.info(f"BAMloader initialized")
 
     def load_bam(self, template=None):
@@ -46,34 +43,25 @@ class BAMloader:
 
         return self.bam.lengths[self.bam.references.index(contig)]
 
-    def get_read_pairs(self, contig: int, start: int, end: int):
+    def get_reads(self, contig: int, start: int, end: int):
         """
         Maintain a dictionary of read pairs using the shared query_name as the key
         """
         current_interval = f"\tInterval {contig}:{start}-{end}:"
-        logging.info(f"{current_interval} Fetch read pairs")
+        logging.info(f"{current_interval} Get reads")
 
-        non_proper_pair_count = 0
+        total_read_count = 0
+        read_dict = dict()
         for read in self.bam.fetch(contig=str(contig), start=start, end=end):
-            if not read.is_proper_pair:
-                non_proper_pair_count += 1
-                continue
+            total_read_count += 1
 
             qname = read.query_name
-            if qname in self.read_dict:
-                if read.is_read1:
-                    yield read, self.read_dict[qname][1]
-                else:
-                    yield self.read_dict[qname][0], read
+            read_dict[qname].append(read)
 
-            else:
-                if read.is_read1:
-                    self.read_dict[qname][0] = read
-                else:
-                    self.read_dict[qname][1] = read
+        yield read_dict
 
         logging.info(
-            f"{current_interval} Fetch {len(self.read_dict)} read pairs and {non_proper_pair_count} non proper reads"
+            f"{current_interval} Fetch {len(self.read_dict)} read pairs and {total_read_count} non proper reads"
         )
 
     def downsample_reads(
@@ -90,65 +78,100 @@ class BAMloader:
         """
         current_interval = f"\tInterval {contig}:{start}-{end}:"
         logging.info(f"{current_interval} Subsample {fraction} of reads, seed {seed}")
+
+        keep_reads, drop_reads = self.sample(
+            contig=contig,
+            start=start,
+            end=end,
+            fraction=fraction,
+            seed=seed,
+            current_interval=current_interval,
+        )
+
+        # Save query names of dropped reads
+        self.drop_memory.update(
+            [dropped_read.query_name for dropped_read in drop_reads]
+        )
+        logging.info(f"{current_interval} Save dropped read query names")
+
+        # Write kept reads to out_bam
+        for keep_read in keep_reads:
+            out_bam.bam.write(read=keep_read)
+        logging.info(f"{current_interval} Write kept read pairs to output BAM")
+
+    def sample(self, contig, start, end, fraction, seed, current_interval):
+        """"""
         np.random.seed(seed)
-
-        # Get paired reads within the interval
-        all_reads_in_interval = list(
-            self.get_read_pairs(contig=str(contig), start=start, end=end)
+        reads_count = sum(
+            1 for r in self.reads_from_interval(contig=contig, start=start, end=end)
         )
-
-        # Get paired reads that have been dropped before
-        # predropped_reads = [
-        #     read_pair
-        #     for read_pair in all_reads_in_interval
-        #     if read_pair[0].query_name in self.dropped_read_pairs
-        # ]
-
-        # Calculate how many paired reads need to be dropped
-        base_size = math.ceil((1.0 - fraction) * len(all_reads_in_interval))
-
+        full_count = self.count_reads_from_interval(contig=contig, start=start, end=end)
         logging.info(
-            f"{current_interval} Drop {base_size} reads out of {len(all_reads_in_interval)}, ratio: {base_size / len(all_reads_in_interval)}"
+            f"{current_interval} Fetch {reads_count} out of {full_count} reads in interval"
         )
+
+        base_drop_count = math.ceil((1.0 - fraction) * reads_count)
+        reads_dropped_earlier = full_count - reads_count
+        drop_count = base_drop_count - reads_dropped_earlier
+
+        print(base_drop_count, reads_dropped_earlier, drop_count)
+
+        assert drop_count >= 0, f"Drop count negative {drop_count}"
+
+        try:
+            logging.info(
+                f"{current_interval} Drop {drop_count} / {reads_count} = {drop_count / reads_count} of reads"
+            )
+        except ZeroDivisionError:
+            logging.warning(f"{current_interval} Zero reads in interval")
 
         # Get indices of reads that need to be dropped
-        remove_indices = np.random.choice(
-            a=len(all_reads_in_interval),
-            size=base_size,  # - len(predropped_reads),
+        drop_indices = np.random.choice(
+            a=np.arange(reads_count),
+            size=drop_count,
             replace=False,
         )
 
-        # Reads to add to out_bam
-        kept_reads = [
-            read_pair
-            for i, read_pair in enumerate(all_reads_in_interval)
-            if i not in remove_indices
+        # Reads to keep
+        keep = [
+            read
+            for i, read in enumerate(
+                self.reads_from_interval(contig=contig, start=start, end=end)
+            )
+            if i not in drop_indices
         ]
+        logging.info(f"{current_interval} Keep {len(keep)} reads")
 
-        logging.info(f"{current_interval} Keep {len(kept_reads)} read pairs")
-
-        # Reads to remove
-        removed_reads = [
-            read_pair
-            for i, read_pair in enumerate(all_reads_in_interval)
-            if i in remove_indices
+        # Reads to drop
+        drop = [
+            read
+            for i, read in enumerate(
+                self.reads_from_interval(contig=contig, start=start, end=end)
+            )
+            if i in drop_indices
         ]
+        logging.info(f"{current_interval} Drop {len(drop)} reads")
 
-        logging.info(f"{current_interval} Drop {len(removed_reads)} read pairs")
+        logging.info(
+            f"{current_interval} Keep {len(keep)} reads + Drop {len(drop)} reads = Total {len(keep)+len(drop)} reads"
+        )
+        assert (
+            len(keep) + len(drop) == reads_count
+        ), f"Kept {len(keep)} reads + Dropped {len(drop)} reads != Total {reads_count} reads"
 
-        # removed_reads += predropped_reads
+        return keep, drop
 
-        # Add removed reads to memory for future intervals
-        # for removed_read_pair in removed_reads:
-        #     self.dropped_read_pairs.append(removed_read_pair[0].query_name)
+    def reads_from_interval(self, contig, start, end):
+        """
+        Yield reads from specified interval if not dropped before
+        """
+        for read in self.bam.fetch(contig=str(contig), start=start, end=end):
+            if read.query_name not in self.drop_memory:
+                yield read
 
-        logging.info(f"{current_interval} Write kept read pairs to output BAM")
-        # Write kept reads to out_bam
-        for read_pair in kept_reads:
-            out_bam.bam.write(read=read_pair[0])
-            out_bam.bam.write(read=read_pair[1])
-
-        logging.info(f"{current_interval} Finish subsampling")
+    def count_reads_from_interval(self, contig, start, end):
+        """ """
+        return sum(1 for r in self.bam.fetch(contig=str(contig), start=start, end=end))
 
     def confirm_index(self, template):
         """
@@ -158,3 +181,6 @@ class BAMloader:
         if not self.bam.has_index() and not template:
             logging.WARN(f"No index found, indexing BAM {self.file}")
             pysam.index(self.file)
+
+    def close(self):
+        self.bam.close()
