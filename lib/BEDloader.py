@@ -1,5 +1,5 @@
 import pandas as pd
-from intervaltree import Interval, IntervalTree
+from intervaltree import IntervalTree
 import logging
 
 
@@ -10,7 +10,7 @@ class BEDloader:
         Constructor from file and optional chr_length
         """
         self.file = file
-        logging.info(f"Initialize BEDloader using file {self.file}")
+        logging.info(f"Initialize BEDloader from file {self.file}")
         self.load_bed()
 
         self.tree = IntervalTree()
@@ -36,7 +36,7 @@ class BEDloader:
             self.bed["fraction"] <= 1.0
         ).all(), f"Fraction values not within [0.0. 1.0] interval"
 
-        logging.info(f"Loaded BED {self.file}, contig {self.contig}")
+        logging.info(f"Load BED {self.file}, contig {self.contig}")
 
     def populate(self, chr_length: int):
 
