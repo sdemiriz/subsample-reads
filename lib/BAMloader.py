@@ -43,27 +43,6 @@ class BAMloader:
 
         return self.bam.lengths[self.bam.references.index(contig)]
 
-    def get_reads(self, contig: int, start: int, end: int):
-        """
-        Maintain a dictionary of read pairs using the shared query_name as the key
-        """
-        current_interval = f"\tInterval {contig}:{start}-{end}:"
-        logging.info(f"{current_interval} Get reads")
-
-        total_read_count = 0
-        read_dict = dict()
-        for read in self.bam.fetch(contig=str(contig), start=start, end=end):
-            total_read_count += 1
-
-            qname = read.query_name
-            read_dict[qname].append(read)
-
-        yield read_dict
-
-        logging.info(
-            f"{current_interval} Fetch {len(self.read_dict)} read pairs and {total_read_count} non proper reads"
-        )
-
     def downsample_reads(
         self,
         out_bam,
@@ -103,19 +82,11 @@ class BAMloader:
         """"""
         np.random.seed(seed)
         reads_count = sum(
-            1 for r in self.reads_from_interval(contig=contig, start=start, end=end)
+            1 for r in self.non_dropped_reads(contig=contig, start=start, end=end)
         )
-        full_count = self.count_reads_from_interval(contig=contig, start=start, end=end)
-        logging.info(
-            f"{current_interval} Fetch {reads_count} out of {full_count} reads in interval"
-        )
+        logging.info(f"{current_interval} Fetch {reads_count} from interval")
 
-        base_drop_count = math.ceil((1.0 - fraction) * reads_count)
-        reads_dropped_earlier = full_count - reads_count
-        drop_count = base_drop_count - reads_dropped_earlier
-
-        print(base_drop_count, reads_dropped_earlier, drop_count)
-
+        drop_count = math.ceil((1.0 - fraction) * reads_count)
         assert drop_count >= 0, f"Drop count negative {drop_count}"
 
         try:
@@ -136,7 +107,7 @@ class BAMloader:
         keep = [
             read
             for i, read in enumerate(
-                self.reads_from_interval(contig=contig, start=start, end=end)
+                self.non_dropped_reads(contig=contig, start=start, end=end)
             )
             if i not in drop_indices
         ]
@@ -146,7 +117,7 @@ class BAMloader:
         drop = [
             read
             for i, read in enumerate(
-                self.reads_from_interval(contig=contig, start=start, end=end)
+                self.non_dropped_reads(contig=contig, start=start, end=end)
             )
             if i in drop_indices
         ]
@@ -161,7 +132,7 @@ class BAMloader:
 
         return keep, drop
 
-    def reads_from_interval(self, contig, start, end):
+    def non_dropped_reads(self, contig, start, end):
         """
         Yield reads from specified interval if not dropped before
         """
@@ -169,7 +140,7 @@ class BAMloader:
             if read.query_name not in self.drop_memory:
                 yield read
 
-    def count_reads_from_interval(self, contig, start, end):
+    def num_reads_in_interval(self, contig, start, end):
         """ """
         return sum(1 for r in self.bam.fetch(contig=str(contig), start=start, end=end))
 
@@ -179,7 +150,7 @@ class BAMloader:
         Do not index file if opening in write mode (if template provided).
         """
         if not self.bam.has_index() and not template:
-            logging.WARN(f"No index found, indexing BAM {self.file}")
+            logging.warning(f"No index found, indexing BAM {self.file}")
             pysam.index(self.file)
 
     def close(self):
