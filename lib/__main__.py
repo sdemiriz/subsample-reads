@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-from lib.BEDloader import BEDloader
+from lib.Intervals import Intervals
 from lib.BAMloader import BAMloader
 from lib.BAMplotter import BAMplotter
 import argparse, logging
 import numpy as np
-
 
 if __name__ == "__main__":
 
@@ -33,39 +32,39 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.info(f"Accept arguments: {args}")
 
-    in_bam = BAMloader(file=args.in_bam)
-    logging.info(f"Load input BAM file: {args.in_bam}")
+    # in_bam = BAMloader(file=args.in_bam)
+    # logging.info(f"Load input BAM file: {args.in_bam}")
 
-    out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
-    logging.info(f"Open output BAM file: {args.out_bam}")
+    # out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
+    # logging.info(f"Open output BAM file: {args.out_bam}")
 
-    bed = BEDloader(file=args.regions, chr_length=29300000)
+    bed = Intervals(file=args.regions)
     logging.info(f"Load BED file: {args.regions}")
 
     # , chr_length=bam.get_length(contig=contig))
 
-    logging.info(f"Start subsampling")
-    for interval in bed.tree:
+    # logging.info(f"Start subsampling")
+    # for interval in bed.tree:
 
-        logging.info(
-            f"Start subsample interval {bed.contig}:{interval.begin}-{interval.end}"
-        )
+    #     logging.info(
+    #         f"Start subsample interval {bed.contig}:{interval.begin}-{interval.end}"
+    #     )
 
-        in_bam.downsample_reads(
-            out_bam=out_bam,
-            contig=bed.contig,
-            start=interval.begin,
-            end=interval.end,
-            fraction=interval.data,
-            seed=args.seed,
-        )
+    #     in_bam.downsample_reads(
+    #         out_bam=out_bam,
+    #         contig=bed.contig,
+    #         start=interval.begin,
+    #         end=interval.end,
+    #         fraction=interval.data,
+    #         seed=args.seed,
+    #     )
 
-        logging.info(
-            f"End subsample interval {bed.contig}:{interval.begin}-{interval.end}"
-        )
+    #     logging.info(
+    #         f"End subsample interval {bed.contig}:{interval.begin}-{interval.end}"
+    #     )
 
-    in_bam.close()
-    out_bam.close()
+    # in_bam.close()
+    # out_bam.close()
 
     logging.info(f"End log\n")
 
