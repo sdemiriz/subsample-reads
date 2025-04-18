@@ -1,9 +1,11 @@
 # subsample-reads
-Subsample reads is a Python tool that leverages the `pysam` package to subset fractions of reads across multiple defined chromosomal regions in a single chromosome using a BED file to define said fractions.
+Subsample reads is a Python tool that leverages the `pysam` package to subset fractions of reads across multiple defined chromosomal regions in a single chromosome from a BED file.
 
-Other tools that offer similar functionality such as `samtools view` or `GATK DownsampleSam` only process a single chromosomal region at a time, require numerous command line invocations, as well as the splitting and merging BAM files. `subsample-reads` simplifies this process by allowing users to specify a subsampling pattern across an entire chromosome and outputs a single processed BAM file.
+Other tools that offer similar functionality such as `samtools view` or `GATK DownsampleSam` only process a single chromosomal region at a time, require multiple command line invocations, as well as the splitting and merging BAM files. `subsample-reads` simplifies this process by allowing users to specify a subsampling pattern across an entire chromosome and outputs a single processed BAM file.
 
 `subsample-reads` also takes into account paired reads that lie across user-defined region boundaries and drops paired reads when subsampling in adjacent regions if possible.
+
+The tools contains options to produce the required BED file from a BAM file, and plot to quickly check the coverage patterns in BAM files.
 
 ## Installing dependencies:
 1. Create a Python virtual environment:
@@ -21,31 +23,65 @@ Other tools that offer similar functionality such as `samtools view` or `GATK Do
 
 ## Running:
 
-### Requirements:
+### Prerequisites:
+
+#### Universal:
 1. Install Python (tested on Python 3.11.4) dependencies and activate environment before running tool
-1. Single-chromosome BAM file, preferably indexed (tool will index for you but takes longer)
-1. BED file with regions defined on the same contig as in BAM and a fourth column with subsetting fractions
-1. (Optional) Integer seed, default: 42
-1. (Optional) Output filename, default: `out.bam`
+
+#### `chart`
+2. BAM file to produce a read sampling distribution from
+3. (Optional) Window size to scan when calculating read sampling distribution
+
+#### `sample`
+2. BAM to sample according to sampling distribution provided
+3. BED file specifying sampling distribution (possibly created by `chart`)
+4. (Optional) Random integer seed to be used for sampling (for reproducibility)
+
+#### `plot`
+2. One or more BAM files to plot in the provided regions
+3. BED file specifying sampling regions (possibly created by `chart`)
+    - The fraction values are ignored for plotting
 
 ---
 
 ### Input file specifications:
-1. BAM file must feature at most one contig. This file can be produced using `samtools view` from a BAM with wider coverage.
-1. BED file that specifies regions and subsampling fractions. This file should have no header, with columns representing `chr`, `start`, `end`, and `fraction` columns in a tab-separated format, not unlike conventional BED files. 
-- `chr` is be any contig name featured in the input BAM file header
-- `start` is the integer starting coordinate for a region
-- `end` is the integer ending coordinate for a region
-- `fraction` is the floating point fraction in the interval [0.0, 1.0], inclusive for the region
 
-Note: In cases of overlapping regions, the `fraction` value of the region that is lower in the BED file is applied.
+1. BAM file with the following attributes:
+    * Contains a single contig (chromosome or any valid contig name.) Can be generated using `samtools view` from a BAM with wider coverage.
+    * Sorted
+    * Indexed (tool will index BAMs if none are found, this will slow down execution)
+    * If multiple BAM files are provided for `plot`, all BAMs should contain reads aligned to the contig provided
+2. BED file with the following attributes:
+    * No header row
+    * Columns representing `contig`, `begin`, `end`, and `fraction` columns in a tab-separated format, not unlike conventional BED files. 
+        - `contig` is any contig name featured in the input BAM file header
+        - `begin` is the starting chromosomal coordinate for a sampling interval
+        - `end` is the ending coordinate for a sampling interval
+        - `fraction` is a fraction in the interval [0.0, 1.0] (inclusive) for the region, all `fraction` values in BED file need to add up to approximately 1.0 (within a +- 0.05 margin).
 
 ---
 
 ### Execution:
-Executing tool with all required arguments will produce an output file with defined regions being subsetted to the specified fraction of the reads in that region.
 
+Remember to source the Python virtual environment before running the tool using:
 ```{python}
-source venv/bin/activate # activate virtual environment
-python -m lib -i <input_BAM_file> -r <regions_BED_file> -s <seed> -o <output_BAM_file> # run tool
+source venv/bin/activate
+```
+
+#### `chart`
+Executing this command with will produce a BED file with the sampling distribution from the BAM file.
+```{python}
+python -m lib chart -i <input_BAM_file> -w <window_size> -r <regions_BED_file>
+```
+
+#### `sample`
+Executing this command will produce an output file with defined regions being subsetted to the specified fraction of the reads in that region.
+```{python}
+python -m lib sample -i <input_BAM_file> -r <regions_BED_file> -s <seed> -o <output_BAM_file>
+```
+
+#### `plot`
+Executing this command with 1 or more BAM files will produce a coverage plot of the regions in the BED file.
+```{python}
+python -m lib plot -i <input_BAM_files> -r <regions_BED_file> -o <output_plot_file>
 ```
