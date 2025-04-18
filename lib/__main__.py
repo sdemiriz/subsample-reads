@@ -99,7 +99,7 @@ if __name__ == "__main__":
     sample.add_argument("-i", "--in-bam", required=True)
     sample.add_argument("-r", "--regions", required=True)
     sample.add_argument("-o", "--out-bam", default="out.bam")
-    sample.add_argument("-S", "--seed", required=False, default=42)
+    sample.add_argument("-s", "--seed", required=False, default=42)
     sample.set_defaults(func=sample_mode)
 
     plot = subparsers.add_parser("plot")
