@@ -38,14 +38,18 @@ class Intervals:
         Populate IntervalTree using rows from BED file
         """
         info(f"Populate IntervalTree")
-        self.tree = IntervalTree(
-            [Interval(begin=min(self.bed["begin"]), end=max(self.bed["end"]))]
-        )
+        self.tree = IntervalTree()
         for row in self.bed.itertuples():
             assert (
-                len(self.tree.overlap(begin=row[2], end=row[3])) == 1
+                len(self.tree.overlap(begin=row[2], end=row[3])) == 0
             ), "BED file contains overlapping intervals"
             self.tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
+
+    def limits(self):
+        """
+        Return contig, min and max of the region described in BED file
+        """
+        return (self.bed["chr"], min(self.bed["begin"]), max(self.bed["end"]))
 
     def validate_bed(self):
         """

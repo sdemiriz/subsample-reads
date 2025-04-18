@@ -3,6 +3,7 @@
 from lib.Intervals import Intervals
 from lib.BAMloader import BAMloader
 from lib.BAMplotter import BAMplotter
+from lib.BAMcharter import BAMcharter
 import argparse, logging
 import numpy as np
 
@@ -21,7 +22,12 @@ def chart_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    raise NotImplementedError()
+    BAMcharter(
+        bam_file=args.in_bam,
+        bed_file=args.regions,
+        contig="chr6",
+        window_size=args.window_size,
+    )
 
 
 def sample_mode(args):
@@ -63,6 +69,13 @@ def sample_mode(args):
     out_bam.close()
 
 
+def plot_mode(args):
+    """
+    Chart a distribution of reads from given BAM file
+    """
+    BAMplotter(bam_files=args.in_bam, bed_file=args.regions, out=args.output)
+
+
 if __name__ == "__main__":
 
     logging.info("Begin log")
@@ -78,7 +91,7 @@ if __name__ == "__main__":
 
     chart = subparsers.add_parser("chart")
     chart.add_argument("-i", "--in-bam", required=True)
-    chart.add_argument("-w", "--window-size", default=1000000)
+    chart.add_argument("-w", "--window-size", default=1_000_000)
     chart.add_argument("-r", "--regions", default="out.bed")
     chart.set_defaults(func=chart_mode)
 
@@ -88,6 +101,12 @@ if __name__ == "__main__":
     sample.add_argument("-o", "--out-bam", default="out.bam")
     sample.add_argument("-S", "--seed", required=False, default=42)
     sample.set_defaults(func=sample_mode)
+
+    plot = subparsers.add_parser("plot")
+    plot.add_argument("-i", "--in-bam", nargs="+", required=True)
+    plot.add_argument("-r", "--regions", required=True)
+    plot.add_argument("-o", "--output", default="out.png")
+    sample.set_defaults(func=plot_mode)
 
     args = parser.parse_args()
     logging.info(f"Accept arguments: {args}")
