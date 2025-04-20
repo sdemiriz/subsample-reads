@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import pysam
-import logging.info as info
+from logging import info
 from lib.BAMloader import BAMloader
 from lib.Intervals import Intervals
 
