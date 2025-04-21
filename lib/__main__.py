@@ -27,6 +27,7 @@ def chart_mode(args):
         bed_file=args.regions,
         contig="chr6",
         window_size=args.window_size,
+        window_count=args.window_count,
     )
 
 
@@ -91,8 +92,10 @@ if __name__ == "__main__":
 
     chart = subparsers.add_parser("chart")
     chart.add_argument("-i", "--in-bam", required=True)
-    chart.add_argument("-w", "--window-size", default=1_000_000)
     chart.add_argument("-r", "--regions", default="out.bed")
+    windows = chart.add_mutually_exclusive_group(required=True)
+    windows.add_argument("-w", "--window-size", default=None)
+    windows.add_argument("-n", "--window-count", default=None)
     chart.set_defaults(func=chart_mode)
 
     sample = subparsers.add_parser("sample")

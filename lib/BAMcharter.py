@@ -9,16 +9,25 @@ class BAMcharter:
     Chart the distribution of the provided BAM file
     """
 
-    def __init__(self, bam_file, bed_file, contig, window_size):
+    def __init__(
+        self,
+        bam_file: str,
+        bed_file: str,
+        contig: str,
+        window_size,
+        window_count,
+    ):
         """"""
 
         info(
-            f"Initialize BAMcharter with {bam_file=}, {bed_file=}, {contig=}, {window_size=}"
+            f"Initialize BAMcharter with {bam_file=}, {bed_file=}, {contig=}, {window_size=}, {window_count=}"
         )
         self.bam_file = bam_file
         self.bed_file = bed_file
         self.contig = str(contig)
+
         self.window_size = window_size
+        self.window_count = window_count
 
         info(f"Initialize BAMloader using BAM file {self.bam_file}")
         self.bam = BAMloader(file=self.bam_file)
@@ -52,6 +61,7 @@ class BAMcharter:
 
     def form_bed_intervals(self):
         """ """
+        info(f"Form intervals for BED file")
         interval_boundaries = self.divide_contig()
 
         to_dataframe = []
@@ -76,9 +86,25 @@ class BAMcharter:
         """ """
         reference_length = self.bam.bam.get_reference_length(self.contig)
 
-        interval_boundaries = [i for i in range(0, reference_length, self.window_size)]
-        if interval_boundaries[-1] != reference_length:
-            interval_boundaries.append(reference_length)
+        if self.window_size:
+            self.window_size = int(self.window_size)
+            info(f"Using {self.window_size=}")
+
+            interval_boundaries = [
+                i for i in range(0, reference_length, self.window_size)
+            ]
+            if interval_boundaries[-1] != reference_length:
+                interval_boundaries.append(reference_length)
+
+        if self.window_count:
+            self.window_count = int(self.window_count)
+            info(f"Using {self.window_count=}")
+
+            interval_size = round(reference_length / self.window_count)
+            interval_boundaries = [
+                i * interval_size for i in range(0, self.window_count + 1)
+            ]
+            interval_boundaries[-1] = reference_length
 
         return interval_boundaries
 
@@ -91,4 +117,4 @@ class BAMcharter:
         """
         Write output to BED file using filename specified
         """
-        self.bed.to_csv(self.bed_file, index=False, header=False)
+        self.bed.to_csv(self.bed_file, sep="\t", index=False, header=False)
