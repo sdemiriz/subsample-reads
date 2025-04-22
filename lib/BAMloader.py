@@ -1,4 +1,5 @@
-import pysam, math, logging
+import pysam, math
+from logging import info
 import numpy as np
 
 
@@ -11,13 +12,13 @@ class BAMloader:
         """
 
         self.file = file
-        logging.info(f"Initialize BAMloader using file {self.file}")
+        info(f"Initialize BAMloader using file {self.file}")
 
         self.load_bam(template=template)
         self.confirm_index(template=template)
 
         self.drop_memory = set()
-        logging.info(f"BAMloader initialized")
+        info(f"BAMloader initialized")
 
     def load_bam(self, template=None):
         """
@@ -25,18 +26,39 @@ class BAMloader:
         """
         if template:
             self.bam = pysam.AlignmentFile(self.file, mode="wb", template=template)
-            logging.info(
+            info(
                 f"Initialize output BAMloader from file {self.file} and template {template}"
             )
         else:
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
-            logging.info(f"Initialize input BAMloader using file {self.file}")
+            info(f"Initialize input BAMloader using file {self.file}")
+
+    def run_subsampling(self, contig, tree, initial_seed, out_bam):
+        """ """
+        info(f"Start sampling")
+        self.initial_seed = initial_seed
+        seeds = self.get_sampling_seeds(count=len(tree))
+
+        for seed, interval in zip(seeds, tree):
+
+            info(f"Start subsample interval {contig}:{interval.begin}-{interval.end}")
+
+            self.downsample_reads(
+                out_bam=out_bam,
+                contig=contig,
+                start=interval.begin,
+                end=interval.end,
+                fraction=interval.data,
+                seed=seed,
+            )
+
+            info(f"End subsample interval {contig}:{interval.begin}-{interval.end}")
 
     def get_length(self, contig: int):
         """
         Get length of provided contig in number of base pairs
         """
-        logging.info(f"Get length for contig {contig}")
+        info(f"Get length for contig {contig}")
 
         contig = str(contig)
         assert contig in self.bam.references, f"Given {contig=} not in BAM references"
@@ -56,6 +78,11 @@ class BAMloader:
 
         return contig
 
+    def get_sampling_seeds(self, count):
+        """ """
+        np.random.seed(self.initial_seed)
+        return list(np.random.randint(low=1, high=1_000_000, size=count))
+
     def downsample_reads(
         self,
         out_bam,
@@ -69,7 +96,7 @@ class BAMloader:
         Subsample reads inside the specified interval region based on provided fraction
         """
         current_interval = f"\tInterval {contig}:{start}-{end}:"
-        logging.info(f"{current_interval} Subsample {fraction} of reads, seed {seed}")
+        info(f"{current_interval} Subsample {fraction} of reads, seed {seed}")
 
         contig = self.clarify_contig(contig)
 
@@ -86,12 +113,12 @@ class BAMloader:
         self.drop_memory.update(
             [dropped_read.query_name for dropped_read in drop_reads]
         )
-        logging.info(f"{current_interval} Save dropped read query names")
+        info(f"{current_interval} Save dropped read query names")
 
         # Write kept reads to out_bam
-        for keep_read in keep_reads:
-            out_bam.bam.write(read=keep_read)
-        logging.info(f"{current_interval} Write kept read pairs to output BAM")
+        for read in keep_reads:
+            out_bam.bam.write(read=read)
+        info(f"{current_interval} Write kept read pairs to output BAM")
 
     def sample(self, contig, start, end, fraction, seed, current_interval):
         """"""
@@ -99,13 +126,13 @@ class BAMloader:
         reads_count = sum(
             1 for r in self.non_dropped_reads(contig=contig, start=start, end=end)
         )
-        logging.info(f"{current_interval} Fetch {reads_count} from interval")
+        info(f"{current_interval} Fetch {reads_count} from interval")
 
         drop_count = math.ceil((1.0 - fraction) * reads_count)
         assert drop_count >= 0, f"Drop count negative {drop_count}"
 
         try:
-            logging.info(
+            info(
                 f"{current_interval} Drop {drop_count} / {reads_count} = {drop_count / reads_count} of reads"
             )
         except ZeroDivisionError:
@@ -126,7 +153,7 @@ class BAMloader:
             )
             if i not in drop_indices
         ]
-        logging.info(f"{current_interval} Keep {len(keep)} reads")
+        info(f"{current_interval} Keep {len(keep)} reads")
 
         # Reads to drop
         drop = [
@@ -136,9 +163,9 @@ class BAMloader:
             )
             if i in drop_indices
         ]
-        logging.info(f"{current_interval} Drop {len(drop)} reads")
+        info(f"{current_interval} Drop {len(drop)} reads")
 
-        logging.info(
+        info(
             f"{current_interval} Keep {len(keep)} reads + Drop {len(drop)} reads = Total {len(keep)+len(drop)} reads"
         )
         assert (

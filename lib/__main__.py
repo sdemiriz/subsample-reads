@@ -5,6 +5,7 @@ from lib.BAMloader import BAMloader
 from lib.BAMplotter import BAMplotter
 from lib.BAMcharter import BAMcharter
 import argparse, logging
+from logging import info
 import numpy as np
 
 logger = logging.getLogger("root")
@@ -36,35 +37,17 @@ def sample_mode(args):
     Sample provided BAM file based on regions in BED file
     """
     in_bam = BAMloader(file=args.in_bam)
-    logging.info(f"Load input BAM file: {args.in_bam}")
+    info(f"Load input BAM file: {args.in_bam}")
 
     out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
-    logging.info(f"Open output BAM file: {args.out_bam}")
+    info(f"Open output BAM file: {args.out_bam}")
 
     bed = Intervals(file=args.regions)
-    logging.info(f"Load BED file: {args.regions}")
+    info(f"Load BED file: {args.regions}")
 
-    # , chr_length=bam.get_length(contig=contig))
-
-    logging.info(f"Start sampling")
-    for interval in bed.tree:
-
-        logging.info(
-            f"Start subsample interval {bed.contig}:{interval.begin}-{interval.end}"
-        )
-
-        in_bam.downsample_reads(
-            out_bam=out_bam,
-            contig=bed.contig,
-            start=interval.begin,
-            end=interval.end,
-            fraction=interval.data,
-            seed=args.seed,
-        )
-
-        logging.info(
-            f"End subsample interval {bed.contig}:{interval.begin}-{interval.end}"
-        )
+    in_bam.run_subsampling(
+        contig=bed.contig, tree=bed.tree, initial_seed=args.seed, out_bam=out_bam
+    )
 
     in_bam.close()
     out_bam.close()
@@ -79,7 +62,7 @@ def plot_mode(args):
 
 if __name__ == "__main__":
 
-    logging.info("Begin log")
+    info("Begin log")
 
     parser = argparse.ArgumentParser(
         prog="subsample-reads",
@@ -112,10 +95,8 @@ if __name__ == "__main__":
     plot.set_defaults(func=plot_mode)
 
     args = parser.parse_args()
-    logging.info(f"Accept arguments: {args}")
+    info(f"Accept arguments: {args}")
 
     args.func(args)
 
-    logging.info(f"End log\n")
-
-    # BAMplotter([args.in_bam, args.out_bam], 6, 29000000, 29200000)
+    info(f"End log\n")
