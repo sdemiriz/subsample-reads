@@ -37,10 +37,7 @@ def sample_mode(args):
     Sample provided BAM file based on regions in BED file
     """
     in_bam = BAMloader(file=args.in_bam)
-    info(f"Load input BAM file: {args.in_bam}")
-
     out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
-    info(f"Open output BAM file: {args.out_bam}")
 
     bed = Intervals(file=args.regions)
     info(f"Load BED file: {args.regions}")
