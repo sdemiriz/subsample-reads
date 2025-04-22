@@ -70,7 +70,7 @@ class BAMcharter:
                 pass
             else:
                 d = {
-                    "chr": self.contig,
+                    "contig": self.contig,
                     "begin": interval_boundaries[i - 1],
                     "end": interval_boundaries[i],
                     "fraction": -1,
@@ -79,7 +79,7 @@ class BAMcharter:
 
         self.bed = pd.DataFrame.from_records(
             to_dataframe,
-            columns=["chr", "begin", "end", "fraction"],
+            columns=["contig", "begin", "end", "fraction"],
         )
 
     def divide_contig(self):
@@ -117,4 +117,5 @@ class BAMcharter:
         """
         Write output to BED file using filename specified
         """
+        info(f"Write BED file contents to {self.bed_file}")
         self.bed.to_csv(self.bed_file, sep="\t", index=False, header=False)
