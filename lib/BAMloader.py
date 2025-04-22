@@ -43,6 +43,19 @@ class BAMloader:
 
         return self.bam.lengths[self.bam.references.index(contig)]
 
+    def clarify_contig(self, contig):
+        """ """
+        if contig not in self.bam.references:
+            if contig.startswith("chr"):
+                contig = contig[3:]
+            else:
+                contig = "chr" + contig
+
+        if contig not in self.bam.references:
+            raise ValueError("Contig name could not be automatically fixed")
+
+        return contig
+
     def downsample_reads(
         self,
         out_bam,
@@ -57,6 +70,8 @@ class BAMloader:
         """
         current_interval = f"\tInterval {contig}:{start}-{end}:"
         logging.info(f"{current_interval} Subsample {fraction} of reads, seed {seed}")
+
+        contig = self.clarify_contig(contig)
 
         keep_reads, drop_reads = self.sample(
             contig=contig,
