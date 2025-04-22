@@ -109,7 +109,7 @@ if __name__ == "__main__":
     plot.add_argument("-i", "--in-bam", nargs="+", required=True)
     plot.add_argument("-r", "--regions", required=True)
     plot.add_argument("-o", "--output", default="out.png")
-    sample.set_defaults(func=plot_mode)
+    plot.set_defaults(func=plot_mode)
 
     args = parser.parse_args()
     logging.info(f"Accept arguments: {args}")
