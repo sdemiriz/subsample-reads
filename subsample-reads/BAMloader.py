@@ -1,7 +1,7 @@
-import pysam, math, logging
-from logging import info
-import numpy as np
 from intervaltree import Interval, IntervalTree
+from logging import info, warning
+import pysam, math
+import numpy as np
 
 
 class BAMloader:
@@ -11,14 +11,14 @@ class BAMloader:
         Constructor:
         If file is initialized with a template and optionally, a template file
         """
-        info(f"Initialize BAMloader from file {file}")
+        info(f"Initialize BAMloader from {file}, {template=}")
 
         self.file = file
         self.load_bam(template=template)
         self.confirm_index(template=template)
         self.drop_cache = set()
 
-        info("Initialize BAMloader complete")
+        info("Complete BAMloader")
 
     def load_bam(self, template=None):
         """
@@ -55,7 +55,7 @@ class BAMloader:
 
         info("Complete subsampling procedure")
 
-    def handle_contig_name(self, contig):
+    def handle_contig_name(self, contig: str):
         """
         Handle contig names of the formats 'chrN' or 'N'
         """
@@ -76,7 +76,7 @@ class BAMloader:
         return contig
 
     @staticmethod
-    def get_sampling_seeds(initial_seed, count):
+    def get_sampling_seeds(initial_seed: int, count: int):
         """
         Generate a supplied count of integer seeds using initial_seed
         """
@@ -131,7 +131,10 @@ class BAMloader:
         reads_count = sum(
             1
             for r in self.non_dropped_reads(
-                contig=contig, start=interval.begin, end=interval.end
+                contig=contig,
+                start=interval.begin,
+                end=interval.end,
+                current_interval=current_interval,
             )
         )
         info(f"{current_interval} Fetch {reads_count} from interval")
@@ -156,7 +159,10 @@ class BAMloader:
             read
             for i, read in enumerate(
                 self.non_dropped_reads(
-                    contig=contig, start=interval.begin, end=interval.end
+                    contig=contig,
+                    start=interval.begin,
+                    end=interval.end,
+                    current_interval=current_interval,
                 )
             )
             if i not in drop_indices
@@ -169,7 +175,10 @@ class BAMloader:
             read
             for i, read in enumerate(
                 self.non_dropped_reads(
-                    contig=contig, start=interval.begin, end=interval.end
+                    contig=contig,
+                    start=interval.begin,
+                    end=interval.end,
+                    current_interval=current_interval,
                 )
             )
             if i in drop_indices
@@ -183,7 +192,7 @@ class BAMloader:
             len(keep) + len(drop) == reads_count
         ), f"Kept {len(keep)} reads + Dropped {len(drop)} reads != Total {reads_count} reads"
 
-        info("{current_interval} Complete sample reads from interval")
+        info(f"{current_interval} Complete sample reads from interval")
         return keep, drop
 
     @staticmethod
@@ -203,30 +212,36 @@ class BAMloader:
                 f"{current_interval} Drop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
             )
         except ZeroDivisionError:
-            logging.warning(f"{current_interval} Zero reads in interval")
+            warning(f"{current_interval} Zero reads in interval")
 
         info(f"{current_interval} Complete get dropped reads count")
         return drop_count
 
-    def non_dropped_reads(self, contig: str, start: int, end: int):
+    def non_dropped_reads(
+        self, contig: str, start: int, end: int, current_interval: str
+    ):
         """
         Yield reads from specified interval if not dropped before
         """
-        info("Get non-dropped reads")
+        info(f"{current_interval} Get non-dropped reads")
 
         for read in self.bam.fetch(contig=str(contig), start=start, end=end):
             if read.query_name not in self.drop_cache:
                 yield read
 
-        info("Complete get non-dropped reads")
+        info(f"{current_interval} Complete get non-dropped reads")
 
     def confirm_index(self, template):
         """
         Index file if one doesn't exist, do not index file if opening in write mode
         """
+        info(f"Confirm index present")
+
         if not self.bam.has_index() and not template:
-            logging.warning(f"No index found, indexing BAM {self.file}")
+            warning(f"No index found, indexing BAM {self.file}")
             pysam.index(self.file)
+
+        info(f"Complete confirm index present")
 
     def close(self):
         self.bam.close()

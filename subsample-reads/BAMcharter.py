@@ -14,17 +14,15 @@ class BAMcharter:
         bam_file: str,
         bed_file: str,
         contig: str,
-        window_size,
-        window_count,
+        window_size: int,
+        window_count: int,
     ):
         """"""
-
         info(
             f"Initialize BAMcharter with {bam_file=}, {bed_file=}, {contig=}, {window_size=}, {window_count=}"
         )
         self.bam_file = bam_file
         self.bed_file = bed_file
-        self.contig = str(contig)
 
         self.window_size = window_size
         self.window_count = window_count
@@ -37,6 +35,7 @@ class BAMcharter:
 
         info(f"Generate intervals for BED file using window size")
         self.form_bed_intervals()
+        self.contig = self.bed["contig"][0]
 
         info(f"Calculate fraction of reads included in each interval")
         fractions = []
@@ -49,7 +48,7 @@ class BAMcharter:
         info(f"Write interval data to BED file")
         self.write_bed()
 
-    def get_reads_fraction(self, contig, begin, end):
+    def get_reads_fraction(self, contig: str, begin: int, end: int):
         """ """
         info(
             f"Calculate number of reads in interval as fraction of total reads in BAM file"

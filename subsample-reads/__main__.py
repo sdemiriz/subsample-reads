@@ -6,7 +6,6 @@ from lib.BAMplotter import BAMplotter
 from lib.BAMcharter import BAMcharter
 import argparse, logging
 from logging import info
-import numpy as np
 
 logger = logging.getLogger("root")
 

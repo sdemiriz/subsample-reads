@@ -1,8 +1,7 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-from logging import info
 from lib.BAMloader import BAMloader
 from lib.Intervals import Intervals
+import matplotlib.pyplot as plt
+from logging import info
 
 
 class BAMplotter:
@@ -16,12 +15,11 @@ class BAMplotter:
         """
         Constructor for plotting utility
         """
-        info(f"Initialize BAMplotter")
+        info(f"Initialize BAMplotter with {bam_files=}, {bed_file=}, {out=}")
 
         self.bed_file = bed_file
         self.bed = Intervals(self.bed_file)
 
-        info(f"Load {len(bam_files)} BAM files")
         self.bam_files = bam_files
         self.bams = [BAMloader(bam) for bam in bam_files]
 
