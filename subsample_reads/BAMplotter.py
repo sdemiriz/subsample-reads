@@ -1,5 +1,5 @@
-from lib.BAMloader import BAMloader
-from lib.Intervals import Intervals
+from subsample_reads.BAMloader import BAMloader
+from subsample_reads.Intervals import Intervals
 import matplotlib.pyplot as plt
 from logging import info
 

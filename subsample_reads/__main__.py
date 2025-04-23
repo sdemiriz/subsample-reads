@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from lib.Intervals import Intervals
-from lib.BAMloader import BAMloader
-from lib.BAMplotter import BAMplotter
-from lib.BAMcharter import BAMcharter
+from subsample_reads.Intervals import Intervals
+from subsample_reads.BAMloader import BAMloader
+from subsample_reads.BAMplotter import BAMplotter
+from subsample_reads.BAMcharter import BAMcharter
 import argparse, logging
 from logging import info
 

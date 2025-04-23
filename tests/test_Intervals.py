@@ -1,5 +1,5 @@
 import unittest
-from lib.Intervals import Intervals
+from subsample_reads.Intervals import Intervals
 
 
 class TestIntervals(unittest.TestCase):

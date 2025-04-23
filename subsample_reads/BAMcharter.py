@@ -1,4 +1,4 @@
-from lib.BAMloader import BAMloader
+from subsample_reads.BAMloader import BAMloader
 import pysam
 import pandas as pd
 from logging import info
