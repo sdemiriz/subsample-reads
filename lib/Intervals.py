@@ -14,7 +14,7 @@ class Intervals:
         info(f"Initialize Intervals from file {self.file}")
 
         self.read_bed()
-        self.contig = self.bed["chr"][0]
+        self.contig = self.bed["contig"][0]
         info(f"Set contig {self.contig}")
 
         self.populate()
@@ -28,8 +28,8 @@ class Intervals:
             self.file,
             sep="\t",
             header=None,
-            names=["chr", "begin", "end", "fraction"],
-            dtype={"chr": str, "begin": int, "end": int, "fraction": float},
+            names=["contig", "start", "end", "fraction"],
+            dtype={"contig": str, "start": int, "end": int, "fraction": float},
         )
         info(f"Load BED {self.file}")
 
@@ -45,19 +45,19 @@ class Intervals:
             ), "BED file contains overlapping intervals"
             self.tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
 
-    def limits(self):
+    def get_limits(self):
         """
         Return contig, min and max of the region described in BED file
         """
-        return (self.bed["chr"], min(self.bed["begin"]), max(self.bed["end"]))
+        return (self.bed["contig"], min(self.bed["start"]), max(self.bed["end"]))
 
     def validate_bed(self):
         """
         Checks to validate assumptions when reading intervals from BED file
         """
         assert (
-            len(pd.unique(self.bed["chr"])) == 1
-        ), f"Not all chr values in BED file are the same"
+            len(pd.unique(self.bed["contig"])) == 1
+        ), f"Not all contig values in BED file are the same"
 
         assert (self.bed["fraction"] >= 0.0).all() and (
             self.bed["fraction"] <= 1.0
