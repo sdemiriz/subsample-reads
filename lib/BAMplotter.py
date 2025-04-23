@@ -1,6 +1,5 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import pysam
 from logging import info
 from lib.BAMloader import BAMloader
 from lib.Intervals import Intervals
@@ -14,33 +13,44 @@ class BAMplotter:
         bed_file: str,
         out: str,
     ):
+        """
+        Constructor for plotting utility
+        """
+        info(f"Initialize BAMplotter")
+
         self.bed_file = bed_file
         self.bed = Intervals(self.bed_file)
-        contig, start, end = self.bed.limits()
 
-        current_interval = f"\tInterval {contig}:{start}-{end}:"
-        info(f"{current_interval} Start plot")
-
-        info(f"{current_interval} Load {len(bam_files)} BAM files")
+        info(f"Load {len(bam_files)} BAM files")
         self.bam_files = bam_files
         self.bams = [BAMloader(bam) for bam in bam_files]
 
         self.out = out
-        self.plot(out=self.out, current_interval=current_interval)
+        self.plot(out=self.out)
 
-    def plot(self, out, current_interval):
-        """
-        Plot provided BAM file pileups
-        """
-        contig, start, end = self.bed.limits()
-        info(f"{current_interval} Pileup BAMs")
+        info(f"Complete BAMplotter")
 
+    def pileup_bams(self, contig: str, start: int, end: int):
+        """
+        Pileup BAMs for the defined region
+        """
+        info("Pileup BAMs")
         pileups = [
             bam.bam.pileup(contig=contig, start=start, stop=end) for bam in self.bams
         ]
 
-        info(f"{current_interval} Begin plot")
+        info("Complete pileup BAMs")
+        return pileups
+
+    def plot(self, out):
+        """
+        Plot provided BAM file pileups
+        """
+        info(f"Begin plotting")
         fig, ax = plt.subplots(layout="constrained")
+
+        contig, start, end = self.bed.get_limits()
+        pileups = self.pileup_bams(contig=contig, start=start, end=end)
 
         for pileup in pileups:
             ax.plot(
@@ -51,11 +61,12 @@ class BAMplotter:
 
         ax.grid(visible=True, linestyle="--", linewidth=1)
         ax.ticklabel_format(useOffset=False, style="plain")
-        ax.set_title(f"Coverage across chr{contig}:{start}-{end}")
+        ax.set_title(f"Coverage across {contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")
         ax.set_ylabel("Depth of coverage")
         ax.legend()
-        info(f"{current_interval} End plot")
 
-        info(f"{current_interval} Save plot")
+        info(f"Complete plotting")
+
+        info(f"Save plot")
         plt.savefig(out)
