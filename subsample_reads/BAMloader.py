@@ -137,7 +137,7 @@ class BAMloader:
                 current_interval=current_interval,
             )
         )
-        info(f"{current_interval} Fetch {reads_count} from interval")
+        info(f"{current_interval} Fetch {reads_count} reads from interval")
 
         drop_count = self.get_drop_count(
             drop_fraction=interval.data,
