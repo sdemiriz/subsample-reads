@@ -71,7 +71,7 @@ if __name__ == "__main__":
         title="subcommands", description="valid subcommands", required=True
     )
 
-    mapping = subparsers.add_parser("chart")
+    mapping = subparsers.add_parser("map")
     mapping.add_argument("-i", "--in-bam", required=True)
 
     intervals = mapping.add_mutually_exclusive_group(required=True)
