@@ -3,7 +3,7 @@
 from subsample_reads.Intervals import Intervals
 from subsample_reads.BAMloader import BAMloader
 from subsample_reads.BAMplotter import BAMplotter
-from subsample_reads.BAMcharter import BAMcharter
+from subsample_reads.Mapper import Mapper
 import argparse, logging
 from logging import info
 
@@ -18,16 +18,18 @@ logging.basicConfig(
 )
 
 
-def chart_mode(args):
+def mapping_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    BAMcharter(
-        bam_file=args.in_bam,
-        bed_file=args.regions,
-        contig="chr6",
-        window_size=args.window_size,
-        window_count=args.window_count,
+    Mapper(
+        bam_filename=args.in_bam,
+        contig=args.contig,
+        start=args.start,
+        end=args.end,
+        interval_length=args.interval_length,
+        interval_count=args.interval_count,
+        bed_filename=args.regions,
     )
 
 
@@ -69,13 +71,19 @@ if __name__ == "__main__":
         title="subcommands", description="valid subcommands", required=True
     )
 
-    chart = subparsers.add_parser("chart")
-    chart.add_argument("-i", "--in-bam", required=True)
-    chart.add_argument("-r", "--regions", default="out.bed")
-    windows = chart.add_mutually_exclusive_group(required=True)
-    windows.add_argument("-w", "--window-size", default=None)
-    windows.add_argument("-n", "--window-count", default=None)
-    chart.set_defaults(func=chart_mode)
+    mapping = subparsers.add_parser("chart")
+    mapping.add_argument("-i", "--in-bam", required=True)
+
+    intervals = mapping.add_mutually_exclusive_group(required=True)
+    intervals.add_argument("-l", "--interval-length", default=None)
+    intervals.add_argument("-n", "--interval-count", default=None)
+
+    mapping.add_argument("-c", "--contig", default="6")
+    mapping.add_argument("-s", "--start", default=25_000_000)
+    mapping.add_argument("-e", "--end", default=35_000_000)
+
+    mapping.add_argument("-r", "--regions", default="out.bed")
+    mapping.set_defaults(func=mapping_mode)
 
     sample = subparsers.add_parser("sample")
     sample.add_argument("-i", "--in-bam", required=True)
