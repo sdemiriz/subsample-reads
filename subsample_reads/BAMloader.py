@@ -11,49 +11,58 @@ class BAMloader:
         Constructor:
         If file is initialized with a template and optionally, a template file
         """
-        info(f"Initialize BAMloader from {file}, {template=}")
+        info(f"Initialize BAMloader with {file}, {template=}")
 
         self.file = file
-        self.load_bam(template=template)
-        self.confirm_index(template=template)
+        self.template = template
+
+        self.bam = self.load_bam()
+        self.confirm_index()
         self.drop_cache = set()
 
         info("Complete BAMloader")
 
-    def load_bam(self, template=None):
+    def load_bam(self):
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
         info(f"Load BAM file from {self.file}")
 
-        if template:
+        if self.template:
             info(f"Template file supplied: load BAM in write mode")
-            self.bam = pysam.AlignmentFile(self.file, mode="wb", template=template)
+            bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
             info(f"Template file not supplied: load BAM in read mode")
-            self.bam = pysam.AlignmentFile(self.file, mode="rb")
+            bam = pysam.AlignmentFile(self.file, mode="rb")
 
-        info(f"Complete load BAM file from {self.file}")
+        info(f"Complete load BAM file")
+        return bam
 
     def run_subsampling(
-        self, contig: str, tree: IntervalTree, initial_seed: int, out_bam: str
+        self, contig: str, tree: IntervalTree, initial_seed: int, out_bam
     ):
         """
-        Triggers the subsampling procedure of the class
+        Trigger the subsampling procedure of the class
         """
         info("Start subsampling procedure")
 
         seeds = self.get_sampling_seeds(initial_seed=initial_seed, count=len(tree))
+        contig = self.handle_contig_name(contig=contig)
+
         for seed, interval in zip(seeds, tree):
             self.subsample_interval(
-                out_bam=out_bam,
                 contig=contig,
                 interval=interval,
                 seed=seed,
+                out_bam=out_bam,
             )
 
         info("Complete subsampling procedure")
+
+        info("Close BAM file IO")
+        self.bam.close()
+        out_bam.bam.close()
 
     def handle_contig_name(self, contig: str):
         """
@@ -78,7 +87,7 @@ class BAMloader:
     @staticmethod
     def get_sampling_seeds(initial_seed: int, count: int):
         """
-        Generate a supplied count of integer seeds using initial_seed
+        Generate a number of integer seeds from initial_seed
         """
         info(f"Generate seeds")
 
@@ -90,42 +99,41 @@ class BAMloader:
 
     def subsample_interval(
         self,
-        out_bam,
         contig: int,
         interval: Interval,
         seed: int,
+        out_bam,
     ):
         """
         Subsample reads inside the specified interval region based on provided fraction
         """
-        info(f"Start subsample interval")
-
-        current_interval = f"\tInterval {contig}:{interval.begin}-{interval.end}:"
-        contig = self.handle_contig_name(contig)
+        info(f"Subsample interval {contig}:{interval.begin}-{interval.end}")
 
         keep_reads, drop_reads = self.sample(
             contig=contig,
             interval=interval,
             seed=seed,
-            current_interval=current_interval,
         )
 
         # Save query names of dropped reads
-        info(f"{current_interval} Save dropped read query names")
+        info(f"\tSave dropped read query names")
         self.drop_cache.update([dropped_read.query_name for dropped_read in drop_reads])
 
         # Write kept reads to out_bam
-        info(f"{current_interval} Write kept read pairs to output BAM")
+        info(f"\tWrite kept read pairs to output BAM")
+
         for read in keep_reads:
             out_bam.bam.write(read=read)
 
-        info(f"Complete subsample interval")
+        info(f"Complete subsample interval {contig}:{interval.begin}-{interval.end}")
 
-    def sample(self, contig: str, interval: Interval, seed: int, current_interval: str):
-        """ """
-        info(f"{current_interval} Sample reads from interval")
+    def sample(self, contig: str, interval: Interval, seed: int):
+        """
+        Get reads to drop and reads to keep in provided interval based on seed
+        """
+        info(f"\tSample reads from interval")
 
-        info(f"{current_interval} Set seed {seed}")
+        info(f"\tSet seed {seed}")
         np.random.seed(seed)
 
         reads_count = sum(
@@ -134,19 +142,17 @@ class BAMloader:
                 contig=contig,
                 start=interval.begin,
                 end=interval.end,
-                current_interval=current_interval,
             )
         )
-        info(f"{current_interval} Fetch {reads_count} reads from interval")
+        info(f"\tFetch {reads_count} reads from interval")
 
         drop_count = self.get_drop_count(
             drop_fraction=interval.data,
             total_reads_count=reads_count,
-            current_interval=current_interval,
         )
 
         # Get indices of reads that need to be dropped
-        info(f"{current_interval} Sample indices for reads to drop")
+        info(f"\tSample indices for reads to drop")
         drop_indices = np.random.choice(
             a=np.arange(reads_count),
             size=drop_count,
@@ -154,7 +160,7 @@ class BAMloader:
         )
 
         # Reads to keep
-        info(f"{current_interval} Get reads to keep")
+        info(f"\tGet reads to keep")
         keep = [
             read
             for i, read in enumerate(
@@ -162,15 +168,14 @@ class BAMloader:
                     contig=contig,
                     start=interval.begin,
                     end=interval.end,
-                    current_interval=current_interval,
                 )
             )
             if i not in drop_indices
         ]
-        info(f"{current_interval} Keep {len(keep)} reads")
+        info(f"\tKeep {len(keep)} reads")
 
         # Reads to drop
-        info(f"{current_interval} Get reads to drop")
+        info(f"\tGet reads to drop")
         drop = [
             read
             for i, read in enumerate(
@@ -178,66 +183,61 @@ class BAMloader:
                     contig=contig,
                     start=interval.begin,
                     end=interval.end,
-                    current_interval=current_interval,
                 )
             )
             if i in drop_indices
         ]
-        info(f"{current_interval} Drop {len(drop)} reads")
+        info(f"\tDrop {len(drop)} reads")
         info(
-            f"{current_interval} Keep {len(keep)} reads + Drop {len(drop)} reads = Total {len(keep)+len(drop)} reads"
+            f"\tKeep {len(keep)} reads + Drop {len(drop)} reads = Total {len(keep)+len(drop)} reads"
         )
 
         assert (
             len(keep) + len(drop) == reads_count
         ), f"Kept {len(keep)} reads + Dropped {len(drop)} reads != Total {reads_count} reads"
 
-        info(f"{current_interval} Complete sample reads from interval")
+        info(f"\tComplete sample reads from interval")
         return keep, drop
 
     @staticmethod
-    def get_drop_count(
-        drop_fraction: float, total_reads_count: int, current_interval: str
-    ):
+    def get_drop_count(drop_fraction: float, total_reads_count: int):
         """
         Calculate the integer count of reads to be dropped
         """
-        info(f"{current_interval} Get dropped reads count")
+        info(f"\tGet dropped reads count")
 
         drop_count = math.ceil((1 - drop_fraction) * total_reads_count)
         assert drop_count >= 0, f"Drop count cannot be negative ({drop_count= })"
 
         try:
             info(
-                f"{current_interval} Drop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
+                f"\tDrop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
             )
         except ZeroDivisionError:
-            warning(f"{current_interval} Zero reads in interval")
+            warning(f"\tZero reads in interval")
 
-        info(f"{current_interval} Complete get dropped reads count")
+        info(f"\tComplete get dropped reads count")
         return drop_count
 
-    def non_dropped_reads(
-        self, contig: str, start: int, end: int, current_interval: str
-    ):
+    def non_dropped_reads(self, contig: str, start: int, end: int):
         """
         Yield reads from specified interval if not dropped before
         """
-        info(f"{current_interval} Get non-dropped reads")
+        info(f"\tGet non-dropped reads")
 
         for read in self.bam.fetch(contig=str(contig), start=start, end=end):
             if read.query_name not in self.drop_cache:
                 yield read
 
-        info(f"{current_interval} Complete get non-dropped reads")
+        info(f"\tComplete get non-dropped reads")
 
-    def confirm_index(self, template):
+    def confirm_index(self):
         """
         Index file if one doesn't exist, do not index file if opening in write mode
         """
         info(f"Confirm index present")
 
-        if not self.bam.has_index() and not template:
+        if not self.bam.has_index() and not self.template:
             warning(f"No index found, indexing BAM {self.file}")
             pysam.index(self.file)
 
