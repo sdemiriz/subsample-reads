@@ -28,9 +28,6 @@ class Mapper:
         self.contig = str(contig)
         self.start = int(start)
         self.end = int(end)
-
-        self.interval_length = interval_length
-        self.interval_count = interval_count
         self.bed_filename = bed_filename
 
         if interval_length:
@@ -45,11 +42,10 @@ class Mapper:
 
         info("Get intervals for BED file")
         self.bed = self.construct_intervals()
-        self.contig = self.bed["contig"][0]
 
         info("Calculate fraction of reads included in each interval")
         self.bed["fraction"] = [
-            self.get_fraction(begin=row[1], end=row[2])
+            self.get_fraction(start=row[1], end=row[2])
             for row in self.bed.itertuples(index=False)
         ]
 
@@ -71,13 +67,13 @@ class Mapper:
             contig=self.contig, start=self.start, stop=self.end
         )
 
-    def get_fraction(self, begin: int, end: int):
+    def get_fraction(self, start: int, end: int):
         """
         Get number of reads in interval out of all reads in file
         """
         info("Get number of reads in interval as fraction of total reads")
         return (
-            self.bam.bam.count(contig=self.contig, start=begin, end=end)
+            self.bam.bam.count(contig=self.contig, start=start, end=end)
             / self.get_num_reads()
         )
 
@@ -86,7 +82,7 @@ class Mapper:
         Construct BED-formatted DataFrame
         """
         info("Form intervals for BED file")
-        interval_boundaries = self.divide_contig()
+        interval_boundaries = self.get_interval_boundaries()
 
         bed_columns = ["contig", "start", "end", "fraction"]
 
@@ -106,32 +102,33 @@ class Mapper:
 
         return pd.DataFrame.from_records(
             df_precursor,
-            columns=["contig", "begin", "end", "fraction"],
+            columns=["contig", "start", "end", "fraction"],
         )
 
-    def divide_contig(self):
+    def get_interval_boundaries(self):
         """
-        Divide full region absed on interval size or interval count
+        Divide region based on interval size or count
         """
-        reference_length = self.bam.bam.get_reference_length(self.contig)
+        region_length = self.end - self.start
 
         if self.interval_length:
             info("Using interval size to subdivide region")
 
             interval_boundaries = [
-                i for i in range(0, reference_length, self.interval_length)
+                i + self.start for i in range(0, region_length, self.interval_length)
             ]
-            if interval_boundaries[-1] != reference_length:
-                interval_boundaries.append(reference_length)
+            if interval_boundaries[-1] != region_length:
+                interval_boundaries.append(self.end)
 
         if self.interval_count:
             info("Using interval count to subdivide region")
 
-            interval_size = round(reference_length / self.interval_count)
+            interval_size = round(region_length / self.interval_count)
             interval_boundaries = [
-                i * interval_size for i in range(0, self.interval_count + 1)
+                self.start + i * interval_size
+                for i in range(0, self.interval_count + 1)
             ]
-            interval_boundaries[-1] = reference_length
+            interval_boundaries[-1] = self.end
 
         return interval_boundaries
 
