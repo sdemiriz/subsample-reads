@@ -5,7 +5,7 @@ Other tools that offer similar functionality such as `samtools view` or `GATK Do
 
 During subsampling, `subsample-reads` takes into account paired reads that lie across region boundaries and drops paired reads when subsampling in adjacent regions if possible.
 
-The tools contains functions to produce the required BED file that contains sampling regions from a BAM file (`chart`), to and plot to quickly check the coverage patterns in BAM files.
+The tools contains functions to produce the required BED file that contains sampling regions from a BAM file (`map`), to and plot to quickly check the coverage patterns in BAM files.
 
 ## Installing dependencies:
 1. Create a Python virtual environment:
@@ -27,18 +27,18 @@ The tools contains functions to produce the required BED file that contains samp
 
 1. Install Python (tested on Python 3.11.4) dependencies and activate environment before running tool
 
-#### `chart`
+#### `map`
 2. BAM file to produce a read sampling distribution from
 3. (Optional) Window size or number of windows to set up when calculating read sampling distribution
 
 #### `sample`
 2. BAM to sample according to sampling distribution provided
-3. BED file specifying sampling distribution (possibly created by `chart`)
+3. BED file specifying sampling distribution (possibly created by `map`)
 4. (Optional) Random integer seed to use for sampling (for reproducibility)
 
 #### `plot`
 2. One or more BAM files to plot in the provided regions
-3. BED file specifying sampling regions (possibly created by `chart`)
+3. BED file specifying sampling regions (possibly created by `map`)
     - Fraction values are ignored during plotting
 
 ---
@@ -47,8 +47,7 @@ The tools contains functions to produce the required BED file that contains samp
 
 1. BAM file with the following attributes:
     * Contains a single contig (chromosome or any valid contig name.) Can be generated using `samtools view` from a BAM with wider coverage.
-    * Sorted
-    * Indexed (tool will index BAMs if none are found, this will slow down execution)
+    * Sorted and indexed
     * If multiple BAM files are provided for `plot`, all BAMs should contain reads aligned to the contig provided
 2. BED file with the following attributes:
     * No header row
@@ -67,20 +66,20 @@ Remember to source the Python virtual environment before running the tool using:
 source venv/bin/activate
 ```
 
-#### `chart`
+#### `map`
 Executing this command with will produce a BED file with the sampling distribution from the BAM file.
 ```{python}
-python -m lib chart -i <input_BAM_file> (-w <window_size>/ -n <window_count>) -r <regions_BED_file>
+python -m subsample_reads map -i <input_BAM_file> -c <contig> -s <region_start> -e <region_end> (-w <window_size>/ -n <window_count>) -r <regions_BED_file>
 ```
 
 #### `sample`
 Executing this command will produce an output file with defined regions being subsetted to the specified fraction of the reads in that region.
 ```{python}
-python -m lib sample -i <input_BAM_file> -r <regions_BED_file> -s <seed> -o <output_BAM_file>
+python -m subsample_reads sample -i <input_BAM_file> -r <regions_BED_file> -s <seed> -o <output_BAM_file>
 ```
 
 #### `plot`
 Executing this command with 1 or more BAM files will produce a coverage plot of the regions in the BED file.
 ```{python}
-python -m lib plot -i <input_BAM_files> -r <regions_BED_file> -o <output_plot_file>
+python -m subsample_reads plot -i <input_BAM_files> -r <regions_BED_file> -o <output_plot_file>
 ```
