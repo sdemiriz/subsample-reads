@@ -17,7 +17,6 @@ class BAMloader:
         self.template = template
 
         self.bam = self.load_bam()
-        self.confirm_index()
         self.drop_cache = set()
 
         info("Complete BAMloader")
@@ -230,18 +229,6 @@ class BAMloader:
                 yield read
 
         info(f"\tComplete get non-dropped reads")
-
-    def confirm_index(self):
-        """
-        Index file if one doesn't exist, do not index file if opening in write mode
-        """
-        info(f"Confirm index present")
-
-        if not self.bam.has_index() and not self.template:
-            warning(f"No index found, indexing BAM {self.file}")
-            pysam.index(self.file)
-
-        info(f"Complete confirm index present")
 
     def close(self):
         self.bam.close()
