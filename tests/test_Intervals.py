@@ -9,7 +9,7 @@ class TestIntervals(unittest.TestCase):
             Intervals(file="tests/contigs-not-unique.bed")
 
         self.assertEqual(
-            str(context.exception), f"Not all chr values in BED file are the same"
+            str(context.exception), f"Not all contig values in BED file are the same"
         )
 
     def testFractionsOutsideInterval01(self):
