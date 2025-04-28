@@ -49,7 +49,7 @@ class Intervals:
         """
         Return contig, min and max of the region described in BED file
         """
-        return (self.bed["contig"], min(self.bed["start"]), max(self.bed["end"]))
+        return (self.contig, min(self.bed["start"]), max(self.bed["end"]))
 
     def validate_bed(self):
         """
