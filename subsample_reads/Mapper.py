@@ -13,10 +13,10 @@ class Mapper:
         self,
         bam_filename: str,
         contig: str,
-        start: int,
-        end: int,
-        interval_length: int | None,
-        interval_count: int | None,
+        start: str,
+        end: str,
+        interval_length: str | None,
+        interval_count: str | None,
         bed_filename: str,
     ) -> None:
         """
@@ -32,6 +32,13 @@ class Mapper:
         self.interval_length = interval_length
         self.interval_count = interval_count
         self.bed_filename = bed_filename
+
+        if interval_length:
+            self.interval_length = int(interval_length)
+            self.interval_count = None
+        if interval_count:
+            self.interval_length = None
+            self.interval_count = int(interval_count)
 
         info("Initialize BAMloader")
         self.bam = BAMloader(file=self.bam_filename)
