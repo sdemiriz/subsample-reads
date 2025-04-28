@@ -2,6 +2,8 @@ from subsample_reads.BAMloader import BAMloader
 from subsample_reads.Intervals import Intervals
 import matplotlib.pyplot as plt
 from logging import info
+import pandas as pd
+import pysam
 
 
 class BAMplotter:
@@ -21,26 +23,26 @@ class BAMplotter:
         self.bed = Intervals(self.bed_file)
 
         self.bam_files = bam_files
-        self.bams = [BAMloader(bam) for bam in bam_files]
+        self.get_depths()
 
         self.out = out
-        self.plot(out=self.out)
+        self.plot()
 
         info(f"Complete BAMplotter")
 
-    def pileup_bams(self, contig: str, start: int, end: int):
+    def get_depths(self):
         """
         Pileup BAMs for the defined region
         """
         info("Pileup BAMs")
-        pileups = [
-            bam.bam.pileup(contig=contig, start=start, stop=end) for bam in self.bams
-        ]
+
+        self.depth_files = [bam.split(".")[0] + ".csv" for bam in self.bam_files]
+        for bam, depth in zip(self.bam_files, self.depth_files):
+            pysam.depth(bam, "-r", "6", "-o", depth)
 
         info("Complete pileup BAMs")
-        return pileups
 
-    def plot(self, out):
+    def plot(self):
         """
         Plot provided BAM file pileups
         """
@@ -48,17 +50,21 @@ class BAMplotter:
         fig, ax = plt.subplots(layout="constrained")
 
         contig, start, end = self.bed.get_limits()
-        pileups = self.pileup_bams(contig=contig, start=start, end=end)
 
-        for pileup in pileups:
+        for depth in self.depth_files:
+
+            depths = pd.read_csv(depth, sep="\t", header=None, usecols=[1, 2])
+            depths = depths[::1000]
+
             ax.plot(
-                [p[0] for p in pileup],
-                [p[1] for p in pileup],
-                label=f"{self.bam.file.split('/')[-1]}",
+                depths[1],
+                depths[2],
+                label=f"{depth.split('.')[-2]}",
             )
 
+        ax.set_yscale("log")
         ax.grid(visible=True, linestyle="--", linewidth=1)
-        ax.ticklabel_format(useOffset=False, style="plain")
+        # ax.ticklabel_format(useOffset=False, style="plain")
         ax.set_title(f"Coverage across {contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")
         ax.set_ylabel("Depth of coverage")
@@ -67,4 +73,4 @@ class BAMplotter:
         info(f"Complete plotting")
 
         info(f"Save plot")
-        plt.savefig(out)
+        plt.savefig(self.out)
