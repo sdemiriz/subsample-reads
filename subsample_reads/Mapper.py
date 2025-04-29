@@ -1,5 +1,4 @@
 from subsample_reads.BAMloader import BAMloader
-import pysam
 import pandas as pd
 from logging import info
 
@@ -52,7 +51,7 @@ class Mapper:
         info(f"Write interval data to BED file")
         self.write_bed()
 
-    def get_num_reads(self):
+    def get_num_reads(self) -> int:
         """
         Get number of reads in contig
         """
@@ -67,11 +66,11 @@ class Mapper:
             contig=self.contig, start=self.start, stop=self.end
         )
 
-    def get_fraction(self, start: int, end: int):
+    def get_fraction(self, start: int, end: int) -> float:
         """
         Get number of reads in interval out of all reads in file
         """
-        info("Get number of reads in interval as fraction of total reads")
+        info(f"Get read count in {start}-{end} interval as fraction of total reads")
         return (
             self.bam.bam.count(contig=self.contig, start=start, end=end)
             / self.get_num_reads()
@@ -105,7 +104,7 @@ class Mapper:
             columns=["contig", "start", "end", "fraction"],
         )
 
-    def get_interval_boundaries(self):
+    def get_interval_boundaries(self) -> list[int]:
         """
         Divide region based on interval size or count
         """
@@ -132,7 +131,7 @@ class Mapper:
 
         return interval_boundaries
 
-    def write_bed(self):
+    def write_bed(self) -> None:
         """
         Write output to BED file using filename specified
         """

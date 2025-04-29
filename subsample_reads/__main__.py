@@ -78,7 +78,7 @@ if __name__ == "__main__":
     intervals.add_argument("-l", "--interval-length", default=None)
     intervals.add_argument("-n", "--interval-count", default=None)
 
-    mapping.add_argument("-c", "--contig", default="6")
+    mapping.add_argument("-c", "--contig", default="chr6")
     mapping.add_argument("-s", "--start", default=25_000_000)
     mapping.add_argument("-e", "--end", default=35_000_000)
 
