@@ -6,7 +6,7 @@ import numpy as np
 
 class BAMloader:
 
-    def __init__(self, file: str, template: pysam.AlignmentFile = None):
+    def __init__(self, file: str, template: pysam.AlignmentFile = None) -> None:
         """
         Constructor:
         If file is initialized with a template and optionally, a template file
@@ -102,7 +102,7 @@ class BAMloader:
         interval: Interval,
         seed: int,
         out_bam,
-    ):
+    ) -> None:
         """
         Subsample reads inside the specified interval region based on provided fraction
         """
