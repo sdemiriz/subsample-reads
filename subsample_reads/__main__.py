@@ -4,14 +4,14 @@ from subsample_reads.Intervals import Intervals
 from subsample_reads.BAMloader import BAMloader
 from subsample_reads.Plotter import Plotter
 from subsample_reads.Mapper import Mapper
-import argparse, logging
-from logging import info
+from logging import getLogger, basicConfig, info, DEBUG
+import argparse
 
-logger = logging.getLogger("root")
+logger = getLogger("root")
 
-logging.basicConfig(
+basicConfig(
     filename="log.txt",
-    level=logging.DEBUG,
+    level=DEBUG,
     format="{asctime} - [{levelname}]: {message}",
     style="{",
     datefmt="%H:%M:%S",
