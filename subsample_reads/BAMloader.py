@@ -1,4 +1,4 @@
-from intervaltree import Interval, IntervalTree
+from subsample_reads.Intervals import Intervals
 from logging import info, warning
 import pysam, math
 import numpy as np
@@ -48,15 +48,51 @@ class BAMloader:
         contig, start, end = bed.get_limits()
         contig = self.handle_contig_name(contig=contig)
 
-        for seed, interval in zip(seeds, tree):
-            self.sample_interval(
-                contig=contig,
-                interval=interval,
-                seed=seed,
-                out_bam=out_bam,
+        seeds = self.get_sampling_seeds(initial_seed=initial_seed, count=len(bed.tree))
+        all_reads = self.bam.fetch(contig=contig, start=start, end=end)
+        buckets = len(bed.tree) * [dict()]
+        for r in all_reads:
+            try:
+                low, hi = min(r.get_reference_positions()), max(
+                    r.get_reference_positions()
+                )
+            except ValueError:
+                continue
+            for interval, bucket in zip(bed.tree, buckets):
+                if self.overlap((low, hi), (interval.begin, interval.end)):
+                    if r.query_name in bucket:
+                        bucket[r.query_name] += 1
+                    else:
+                        bucket[r.query_name] = 1
+
+        drop_list = []
+        keep_list = []
+        for seed, b in zip(seeds, buckets):
+            np.random.seed(seed)
+
+            for r in drop_list:
+                if r in b:
+                    if b[r] > 1:
+                        b[r] -= 1
+                    else:
+                        b.pop(r, None)
+            drop = np.random.choice(
+                a=b.keys(),
+                p=[i / sum(b.values()) for i in b.values()],
+                size=round((1 - interval.data) * len(b)),
+                replace=False,
             )
+            keep = [k for k in b.keys() if k not in drop]
+
+            drop_list.extend(drop)
+            keep_list.extend(keep)
+            assert len(drop) + len(keep) == len(b)
 
         info("Complete sampling procedure")
+
+        for r in all_reads:
+            if r.query_name in keep_list:
+                self.bam.write(r)
 
         info("Close BAM file IO")
         self.bam.close()
@@ -102,108 +138,6 @@ class BAMloader:
         info("Complete generate seeds")
         return seeds
 
-    def sample_interval(
-        self,
-        contig: int,
-        interval: Interval,
-        seed: int,
-        out_bam,
-    ) -> None:
-        """
-        Subsample reads inside the specified interval region based on provided fraction
-        """
-        info(f"Sample interval {interval.begin}-{interval.end}")
-
-        keep_reads, drop_reads = self.sample(
-            contig=contig,
-            interval=interval,
-            seed=seed,
-        )
-
-        # Save query names of dropped reads
-        info("\tSave dropped read query names")
-        self.drop_cache.update([dropped_read.query_name for dropped_read in drop_reads])
-
-        # Write kept reads to out_bam
-        info("\tWrite kept read pairs to output BAM")
-
-        for read in keep_reads:
-            out_bam.bam.write(read=read)
-
-        info("Complete sample interval")
-
-    def sample(self, contig: str, interval: Interval, seed: int) -> tuple:
-        """
-        Get reads to drop and reads to keep in provided interval based on seed
-        """
-        info(f"\tSample reads from interval")
-
-        info("\tSet seed {seed}")
-        np.random.seed(seed)
-
-        reads_count = sum(
-            1
-            for r in self.non_dropped_reads(
-                contig=contig,
-                start=interval.begin,
-                end=interval.end,
-            )
-        )
-        info(f"\tFetch {reads_count} reads from interval")
-
-        drop_count = self.get_drop_count(
-            drop_fraction=interval.data,
-            total_reads_count=reads_count,
-        )
-
-        # Get indices of reads that need to be dropped
-        info("\tSample indices for reads to drop")
-        drop_indices = np.random.choice(
-            a=np.arange(reads_count),
-            size=drop_count,
-            replace=False,
-        )
-
-        # Reads to keep
-        info(f"\tGet reads to keep")
-        keep = [
-            read
-            for i, read in enumerate(
-                self.non_dropped_reads(
-                    contig=contig,
-                    start=interval.begin,
-                    end=interval.end,
-                )
-            )
-            if i not in drop_indices
-        ]
-        info(f"\tKeep {len(keep)} reads")
-
-        # Reads to drop
-        info(f"\tGet reads to drop")
-        drop = [
-            read
-            for i, read in enumerate(
-                self.non_dropped_reads(
-                    contig=contig,
-                    start=interval.begin,
-                    end=interval.end,
-                )
-            )
-            if i in drop_indices
-        ]
-        info(f"\tDrop {len(drop)} reads")
-        info(
-            f"\tKeep {len(keep)} reads + Drop {len(drop)} reads = Total {len(keep)+len(drop)} reads"
-        )
-
-        assert (
-            len(keep) + len(drop) == reads_count
-        ), f"Kept {len(keep)} reads + Dropped {len(drop)} reads != Total {reads_count} reads"
-
-        info(f"\tComplete sample reads from interval")
-        return keep, drop
-
     @staticmethod
     def get_drop_count(drop_fraction: float, total_reads_count: int) -> int:
         """
@@ -223,18 +157,6 @@ class BAMloader:
 
         info(f"\tComplete get dropped reads count")
         return drop_count
-
-    def non_dropped_reads(self, contig: str, start: int, end: int):
-        """
-        Yield reads from specified interval if not dropped before
-        """
-        info(f"\tGet non-dropped reads")
-
-        for read in self.bam.fetch(contig=str(contig), start=start, end=end):
-            if read.query_name not in self.drop_cache:
-                yield read
-
-        info(f"\tComplete get non-dropped reads")
 
     def close(self) -> None:
         self.bam.close()
