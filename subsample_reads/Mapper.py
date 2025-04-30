@@ -101,7 +101,7 @@ class Mapper:
 
         return pd.DataFrame.from_records(
             df_precursor,
-            columns=["contig", "start", "end", "fraction"],
+            columns=bed_columns,
         )
 
     def get_interval_boundaries(self) -> list[int]:
@@ -124,7 +124,7 @@ class Mapper:
 
             interval_size = round(region_length / self.interval_count)
             interval_boundaries = [
-                self.start + i * interval_size
+                self.start + (i * interval_size)
                 for i in range(0, self.interval_count + 1)
             ]
             interval_boundaries[-1] = self.end
