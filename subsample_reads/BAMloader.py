@@ -21,7 +21,7 @@ class BAMloader:
 
         info("Complete BAMloader")
 
-    def load_bam(self):
+    def load_bam(self) -> pysam.AlignmentFile:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
@@ -40,7 +40,7 @@ class BAMloader:
 
     def run_subsampling(
         self, contig: str, tree: IntervalTree, initial_seed: int, out_bam
-    ):
+    ) -> None:
         """
         Trigger the subsampling procedure of the class
         """
@@ -63,9 +63,9 @@ class BAMloader:
         self.bam.close()
         out_bam.bam.close()
 
-    def handle_contig_name(self, contig: str):
+    def handle_contig_name(self, contig: str) -> str:
         """
-        Handle contig names of the formats 'chrN' or 'N'
+        Handle contig names based on contigs from BA< file
         """
         info("Start handle contig names")
 
@@ -84,7 +84,7 @@ class BAMloader:
         return contig
 
     @staticmethod
-    def get_sampling_seeds(initial_seed: int, count: int):
+    def get_sampling_seeds(initial_seed: int, count: int) -> list[int]:
         """
         Generate a number of integer seeds from initial_seed
         """
@@ -106,7 +106,7 @@ class BAMloader:
         """
         Subsample reads inside the specified interval region based on provided fraction
         """
-        info(f"Subsample interval {contig}:{interval.begin}-{interval.end}")
+        info(f"Subsample interval {interval.begin}-{interval.end}")
 
         keep_reads, drop_reads = self.sample(
             contig=contig,
@@ -124,9 +124,9 @@ class BAMloader:
         for read in keep_reads:
             out_bam.bam.write(read=read)
 
-        info(f"Complete subsample interval {contig}:{interval.begin}-{interval.end}")
+        info(f"Complete subsample interval")
 
-    def sample(self, contig: str, interval: Interval, seed: int):
+    def sample(self, contig: str, interval: Interval, seed: int) -> tuple:
         """
         Get reads to drop and reads to keep in provided interval based on seed
         """
@@ -199,7 +199,7 @@ class BAMloader:
         return keep, drop
 
     @staticmethod
-    def get_drop_count(drop_fraction: float, total_reads_count: int):
+    def get_drop_count(drop_fraction: float, total_reads_count: int) -> int:
         """
         Calculate the integer count of reads to be dropped
         """
@@ -230,5 +230,5 @@ class BAMloader:
 
         info(f"\tComplete get non-dropped reads")
 
-    def close(self):
+    def close(self) -> None:
         self.bam.close()
