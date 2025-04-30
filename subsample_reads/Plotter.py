@@ -3,10 +3,9 @@ from subsample_reads.Intervals import Intervals
 import matplotlib.pyplot as plt
 from logging import info
 import pandas as pd
-import pysam
 
 
-class BAMplotter:
+class Plotter:
 
     def __init__(
         self,

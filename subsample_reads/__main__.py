@@ -2,7 +2,7 @@
 
 from subsample_reads.Intervals import Intervals
 from subsample_reads.BAMloader import BAMloader
-from subsample_reads.BAMplotter import BAMplotter
+from subsample_reads.Plotter import Plotter
 from subsample_reads.Mapper import Mapper
 import argparse, logging
 from logging import info
@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 
 
-def mapping_mode(args):
+def mapper_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
@@ -51,11 +51,11 @@ def sample_mode(args):
     out_bam.close()
 
 
-def plot_mode(args):
+def plotter_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    BAMplotter(bam_files=args.in_bam, bed_file=args.regions, out=args.output)
+    Plotter(bam_files=args.in_bam, bed_file=args.regions, out=args.output)
 
 
 if __name__ == "__main__":
@@ -71,19 +71,19 @@ if __name__ == "__main__":
         title="subcommands", description="valid subcommands", required=True
     )
 
-    mapping = subparsers.add_parser("map")
-    mapping.add_argument("-i", "--in-bam", required=True)
+    mapper = subparsers.add_parser("map")
+    mapper.add_argument("-i", "--in-bam", required=True)
 
-    intervals = mapping.add_mutually_exclusive_group(required=True)
+    intervals = mapper.add_mutually_exclusive_group(required=True)
     intervals.add_argument("-l", "--interval-length", default=None)
     intervals.add_argument("-n", "--interval-count", default=None)
 
-    mapping.add_argument("-c", "--contig", default="chr6")
-    mapping.add_argument("-s", "--start", default=25_000_000)
-    mapping.add_argument("-e", "--end", default=35_000_000)
+    mapper.add_argument("-c", "--contig", default="chr6")
+    mapper.add_argument("-s", "--start", default=25_000_000)
+    mapper.add_argument("-e", "--end", default=35_000_000)
 
-    mapping.add_argument("-r", "--regions", default="out.bed")
-    mapping.set_defaults(func=mapping_mode)
+    mapper.add_argument("-r", "--regions", default="out.bed")
+    mapper.set_defaults(func=mapper_mode)
 
     sample = subparsers.add_parser("sample")
     sample.add_argument("-i", "--in-bam", required=True)
@@ -92,11 +92,11 @@ if __name__ == "__main__":
     sample.add_argument("-s", "--seed", default=42)
     sample.set_defaults(func=sample_mode)
 
-    plot = subparsers.add_parser("plot")
-    plot.add_argument("-i", "--in-bam", nargs="+", required=True)
-    plot.add_argument("-r", "--regions", required=True)
-    plot.add_argument("-o", "--output", default="out.png")
-    plot.set_defaults(func=plot_mode)
+    plotter = subparsers.add_parser("plot")
+    plotter.add_argument("-i", "--in-bam", nargs="+", required=True)
+    plotter.add_argument("-r", "--regions", required=True)
+    plotter.add_argument("-o", "--output", default="out.png")
+    plotter.set_defaults(func=plotter_mode)
 
     args = parser.parse_args()
     info(f"Accept arguments: {args}")

@@ -11,7 +11,7 @@ class BAMloader:
         Constructor:
         If file is initialized with a template and optionally, a template file
         """
-        info(f"Initialize BAMloader with {file}, {template=}")
+        info("Initialize BAMloader")
 
         self.file = file
         self.template = template
@@ -25,7 +25,7 @@ class BAMloader:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
-        info(f"Load BAM file from {self.file}")
+        info("Load BAM file")
 
         if self.template:
             info(f"Template file supplied: load BAM in write mode")
@@ -35,7 +35,7 @@ class BAMloader:
             info(f"Template file not supplied: load BAM in read mode")
             bam = pysam.AlignmentFile(self.file, mode="rb")
 
-        info(f"Complete load BAM file")
+        info("Complete load BAM file")
         return bam
 
     def run_subsampling(
@@ -88,12 +88,12 @@ class BAMloader:
         """
         Generate a number of integer seeds from initial_seed
         """
-        info(f"Generate seeds")
+        info("Generate seeds")
 
         np.random.seed(initial_seed)
         seeds = list(np.random.randint(low=1, high=1_000_000, size=count))
 
-        info(f"Complete generate seeds")
+        info("Complete generate seeds")
         return seeds
 
     def subsample_interval(
@@ -115,16 +115,16 @@ class BAMloader:
         )
 
         # Save query names of dropped reads
-        info(f"\tSave dropped read query names")
+        info("\tSave dropped read query names")
         self.drop_cache.update([dropped_read.query_name for dropped_read in drop_reads])
 
         # Write kept reads to out_bam
-        info(f"\tWrite kept read pairs to output BAM")
+        info("\tWrite kept read pairs to output BAM")
 
         for read in keep_reads:
             out_bam.bam.write(read=read)
 
-        info(f"Complete subsample interval")
+        info("Complete subsample interval")
 
     def sample(self, contig: str, interval: Interval, seed: int) -> tuple:
         """
@@ -132,7 +132,7 @@ class BAMloader:
         """
         info(f"\tSample reads from interval")
 
-        info(f"\tSet seed {seed}")
+        info("\tSet seed {seed}")
         np.random.seed(seed)
 
         reads_count = sum(
@@ -151,7 +151,7 @@ class BAMloader:
         )
 
         # Get indices of reads that need to be dropped
-        info(f"\tSample indices for reads to drop")
+        info("\tSample indices for reads to drop")
         drop_indices = np.random.choice(
             a=np.arange(reads_count),
             size=drop_count,
