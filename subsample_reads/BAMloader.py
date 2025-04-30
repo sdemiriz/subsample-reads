@@ -62,6 +62,13 @@ class BAMloader:
         self.bam.close()
         out_bam.bam.close()
 
+    @staticmethod
+    def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
+        """
+        Return whether the two provided intervals overlap
+        """
+        return max(pair_x[0], pair_y[0]) < min(pair_x[1], pair_y[1])
+
     def handle_contig_name(self, contig: str) -> str:
         """
         Handle contig names based on contigs from BA< file
