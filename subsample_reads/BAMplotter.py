@@ -12,37 +12,40 @@ class BAMplotter:
         self,
         bam_files: list[str],
         bed_file: str,
-        out: str,
-    ):
+        out: str | None,
+    ) -> None:
         """
         Constructor for plotting utility
         """
         info(f"Initialize BAMplotter with {bam_files=}, {bed_file=}, {out=}")
 
         self.bed_file = bed_file
-        self.bed = Intervals(self.bed_file)
+        self.bed = Intervals(file=self.bed_file)
 
         self.bam_files = bam_files
-        self.get_depths()
 
         self.out = out
         self.plot()
 
         info(f"Complete BAMplotter")
 
-    def get_depths(self):
+    def get_pileups(self) -> list:
         """
         Pileup BAMs for the defined region
         """
         info("Pileup BAMs")
 
-        self.depth_files = [bam.split(".")[0] + ".csv" for bam in self.bam_files]
-        for bam, depth in zip(self.bam_files, self.depth_files):
-            pysam.depth(bam, "-r", "6", "-o", depth)
+        contig, start, end = self.bed.get_limits()
+        bams = [BAMloader(file=bam) for bam in self.bam_files]
+        pileups = [
+            bam.bam.pileup(contig=bam.handle_contig_name(contig), start=start, end=end)
+            for bam in bams
+        ]
 
         info("Complete pileup BAMs")
+        return pileups
 
-    def plot(self):
+    def plot(self) -> None:
         """
         Plot provided BAM file pileups
         """
@@ -50,21 +53,22 @@ class BAMplotter:
         fig, ax = plt.subplots(layout="constrained")
 
         contig, start, end = self.bed.get_limits()
+        pileups = self.get_pileups()
 
-        for depth in self.depth_files:
+        for p in pileups:
 
-            depths = pd.read_csv(depth, sep="\t", header=None, usecols=[1, 2])
-            depths = depths[::1000]
-
-            ax.plot(
-                depths[1],
-                depths[2],
-                label=f"{depth.split('.')[-2]}",
+            pileup = pd.DataFrame(
+                [(a.reference_pos, a.nsegments) for a in p], columns=["coord", "depth"]
             )
 
-        ax.set_yscale("log")
+            ax.plot(
+                pileup["coord"],
+                pileup["depth"],
+                label=f"{self.bed_file.split('.')[-2]}",
+            )
+
         ax.grid(visible=True, linestyle="--", linewidth=1)
-        # ax.ticklabel_format(useOffset=False, style="plain")
+        ax.ticklabel_format(useOffset=False, style="plain")
         ax.set_title(f"Coverage across {contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")
         ax.set_ylabel("Depth of coverage")
