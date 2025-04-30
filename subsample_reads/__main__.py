@@ -43,7 +43,7 @@ def sample_mode(args):
     bed = Intervals(file=args.regions)
     info(f"Load BED file: {args.regions}")
 
-    in_bam.run_subsampling(
+    in_bam.run_sampling(
         contig=bed.contig, tree=bed.tree, initial_seed=args.seed, out_bam=out_bam
     )
 

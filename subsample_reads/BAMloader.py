@@ -38,26 +38,26 @@ class BAMloader:
         info("Complete load BAM file")
         return bam
 
-    def run_subsampling(
+    def run_sampling(
         self, contig: str, tree: IntervalTree, initial_seed: int, out_bam
     ) -> None:
         """
         Trigger the subsampling procedure of the class
         """
-        info("Start subsampling procedure")
+        info("Start sampling procedure")
 
         seeds = self.get_sampling_seeds(initial_seed=initial_seed, count=len(tree))
         contig = self.handle_contig_name(contig=contig)
 
         for seed, interval in zip(seeds, tree):
-            self.subsample_interval(
+            self.sample_interval(
                 contig=contig,
                 interval=interval,
                 seed=seed,
                 out_bam=out_bam,
             )
 
-        info("Complete subsampling procedure")
+        info("Complete sampling procedure")
 
         info("Close BAM file IO")
         self.bam.close()
@@ -96,7 +96,7 @@ class BAMloader:
         info("Complete generate seeds")
         return seeds
 
-    def subsample_interval(
+    def sample_interval(
         self,
         contig: int,
         interval: Interval,
@@ -106,7 +106,7 @@ class BAMloader:
         """
         Subsample reads inside the specified interval region based on provided fraction
         """
-        info(f"Subsample interval {interval.begin}-{interval.end}")
+        info(f"Sample interval {interval.begin}-{interval.end}")
 
         keep_reads, drop_reads = self.sample(
             contig=contig,
@@ -124,7 +124,7 @@ class BAMloader:
         for read in keep_reads:
             out_bam.bam.write(read=read)
 
-        info("Complete subsample interval")
+        info("Complete sample interval")
 
     def sample(self, contig: str, interval: Interval, seed: int) -> tuple:
         """
