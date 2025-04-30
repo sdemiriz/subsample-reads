@@ -29,12 +29,13 @@ The tools contains functions to produce the required BED file that contains samp
 
 #### `map`
 2. BAM file to produce a read sampling distribution from
-3. (Optional) Window size or number of windows to set up when calculating read sampling distribution
+3. A valid contig as well as start and end coordinates for the region to map
+4. Interval size or count to set up when mapping read coverage across region
 
 #### `sample`
 2. BAM to sample according to sampling distribution provided
 3. BED file specifying sampling distribution (possibly created by `map`)
-4. (Optional) Random integer seed to use for sampling (for reproducibility)
+4. (Optional) Integer seed to use for sampling (for reproducibility)
 
 #### `plot`
 2. One or more BAM files to plot in the provided regions
@@ -55,13 +56,13 @@ The tools contains functions to produce the required BED file that contains samp
         - `contig` is any contig name featured in the input BAM file header ("chrN" and just "N" contig name formats are both handled internally by `sample`)
         - `begin` is the starting chromosomal coordinate for a sampling interval
         - `end` is the ending coordinate for a sampling interval
-        - `fraction` is a fraction in the interval [0.0, 1.0] (inclusive) for the region, all `fraction` values in BED file need to add up to approximately 1.0 (within a +- 0.05 margin).
+        - `fraction` is a fraction in the interval [0.0, 1.0] (inclusive) for the region, all `fraction` values in BED file need to sum to approximately 1.0 (within a +- 0.05 margin).
 
 ---
 
 ### Execution:
 
-Remember to source the Python virtual environment before running the tool using:
+Remember to source the Python virtual environment before running the tool:
 ```{python}
 source venv/bin/activate
 ```
