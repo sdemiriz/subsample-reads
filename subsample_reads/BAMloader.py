@@ -38,15 +38,14 @@ class BAMloader:
         info("Complete load BAM file")
         return bam
 
-    def run_sampling(
-        self, contig: str, tree: IntervalTree, initial_seed: int, out_bam
-    ) -> None:
+    def run_sampling(self, intervals: str, initial_seed: int, out_bam) -> None:
         """
         Trigger the subsampling procedure of the class
         """
         info("Start sampling procedure")
 
-        seeds = self.get_sampling_seeds(initial_seed=initial_seed, count=len(tree))
+        bed = Intervals(file=intervals)
+        contig, start, end = bed.get_limits()
         contig = self.handle_contig_name(contig=contig)
 
         for seed, interval in zip(seeds, tree):

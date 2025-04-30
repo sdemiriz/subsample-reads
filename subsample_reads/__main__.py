@@ -40,11 +40,10 @@ def sample_mode(args):
     in_bam = BAMloader(file=args.in_bam)
     out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
 
-    bed = Intervals(file=args.regions)
-    info(f"Load BED file: {args.regions}")
-
     in_bam.run_sampling(
-        contig=bed.contig, tree=bed.tree, initial_seed=args.seed, out_bam=out_bam
+        intervals=args.regions,
+        initial_seed=args.seed,
+        out_bam=out_bam,
     )
 
     in_bam.close()
