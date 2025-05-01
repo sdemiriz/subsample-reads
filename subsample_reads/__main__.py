@@ -38,16 +38,14 @@ def sample_mode(args):
     Sample provided BAM file based on regions in BED file
     """
     in_bam = BAMloader(file=args.in_bam)
-    out_bam = BAMloader(file=args.out_bam, template=in_bam.bam)
 
     in_bam.run_sampling(
         intervals=args.regions,
         initial_seed=args.seed,
-        out_bam=out_bam,
+        out_bam=args.out_bam,
     )
 
     in_bam.close()
-    out_bam.close()
 
 
 def plotter_mode(args):

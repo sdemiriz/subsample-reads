@@ -38,65 +38,100 @@ class BAMloader:
         info("Complete load BAM file")
         return bam
 
-    def run_sampling(self, intervals: str, initial_seed: int, out_bam) -> None:
+    def run_sampling(self, intervals: str, initial_seed: int, out_bam: str) -> None:
         """
         Trigger the subsampling procedure of the class
         """
-        info("Start sampling procedure")
+        info("Start sampling all intervals")
 
-        bed = Intervals(file=intervals)
-        contig, start, end = bed.get_limits()
-        contig = self.handle_contig_name(contig=contig)
+        self.bed = Intervals(file=intervals)
+        seeds = self.get_sampling_seeds(
+            initial_seed=initial_seed, count=len(self.bed.tree)
+        )
+        self.sample(intervals=intervals, seeds=seeds)
 
-        seeds = self.get_sampling_seeds(initial_seed=initial_seed, count=len(bed.tree))
-        all_reads = self.bam.fetch(contig=contig, start=start, end=end)
-        buckets = len(bed.tree) * [dict()]
-        for r in all_reads:
-            try:
-                low, hi = min(r.get_reference_positions()), max(
-                    r.get_reference_positions()
-                )
-            except ValueError:
-                continue
-            for interval, bucket in zip(bed.tree, buckets):
-                if self.overlap((low, hi), (interval.begin, interval.end)):
-                    if r.query_name in bucket:
-                        bucket[r.query_name] += 1
-                    else:
-                        bucket[r.query_name] = 1
+        info("Complete sampling all intervals")
 
-        drop_list = []
-        keep_list = []
-        for seed, b in zip(seeds, buckets):
+        self.write_kept_reads(out_bam=out_bam)
+
+        info("Close input BAM file IO")
+        self.bam.close()
+
+    def sample(self, intervals: str, seeds: list):
+        """ """
+        buckets = self.form_buckets()
+
+        info("Sample reads from input file")
+
+        self.global_drop = []
+        self.global_keep = []
+
+        for seed, bucket, interval in zip(seeds, buckets, self.bed.tree):
             np.random.seed(seed)
 
-            for r in drop_list:
-                if r in b:
-                    if b[r] > 1:
-                        b[r] -= 1
+            for dropped_read in self.global_drop:
+                query_name = dropped_read.query_name
+
+                if query_name in self.bucket:
+                    if bucket[query_name] > 1:
+                        bucket[query_name] -= 1
                     else:
-                        b.pop(r, None)
+                        bucket.pop(query_name, None)
+
             drop = np.random.choice(
-                a=b.keys(),
-                p=[i / sum(b.values()) for i in b.values()],
-                size=round((1 - interval.data) * len(b)),
+                a=bucket.keys(),
+                p=[i / sum(bucket.values()) for i in bucket.values()],
+                size=round((1 - interval.data) * len(bucket)),
                 replace=False,
             )
-            keep = [k for k in b.keys() if k not in drop]
+            keep = [k for k in bucket.keys() if k not in drop]
 
-            drop_list.extend(drop)
-            keep_list.extend(keep)
-            assert len(drop) + len(keep) == len(b)
+            assert len(drop) + len(keep) == len(bucket)
 
-        info("Complete sampling procedure")
+            self.global_drop.extend(drop)
+            self.global_keep.extend(keep)
 
-        for r in all_reads:
-            if r.query_name in keep_list:
-                self.bam.write(r)
+        info("Complete sample reads from input file")
 
-        info("Close BAM file IO")
-        self.bam.close()
+    def write_kept_reads(self, out_bam):
+        """ """
+        info("Write reads to output file")
+
+        out_bam = BAMloader(file=out_bam, template=self.bam)
+        start, end = self.bed.get_limits()
+
+        for r in self.bam.fetch(
+            contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
+        ):
+            if r.query_name in self.global_keep:
+                out_bam.bam.write(r)
+
+        info("Complete write reads to output file")
         out_bam.bam.close()
+
+    def form_buckets(self):
+        """ """
+        info("Form buckets from provided intervals")
+
+        start, end = self.bed.get_limits()
+        buckets = len(self.bed.tree) * [dict()]
+
+        for r in self.bam.fetch(
+            contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
+        ):
+            if r.is_mapped:
+                pos = r.get_reference_positions()
+                low, hi = min(pos), max(pos)
+
+                for interval, bucket in zip(self.bed.tree, buckets):
+                    if self.overlap((low, hi), (interval.begin, interval.end)):
+                        if r.query_name in bucket:
+                            bucket[r.query_name] += 1
+                        else:
+                            bucket[r.query_name] = 1
+
+        info("Complete form buckets from provided intervals")
+        return buckets
 
     @staticmethod
     def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
