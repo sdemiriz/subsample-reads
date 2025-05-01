@@ -49,9 +49,9 @@ class Intervals:
 
     def get_limits(self):
         """
-        Return contig, min and max of the region described in BED file
+        Return min and max of the region described in BED file
         """
-        return (self.contig, min(self.bed["start"]), max(self.bed["end"]))
+        return (min(self.bed["start"]), max(self.bed["end"]))
 
     def validate_bed(self):
         """

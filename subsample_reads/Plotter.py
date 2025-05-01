@@ -34,10 +34,12 @@ class Plotter:
         """
         info("Pileup BAMs")
 
-        contig, start, end = self.bed.get_limits()
+        start, end = self.bed.get_limits()
         bams = [BAMloader(file=bam) for bam in self.bam_files]
         pileups = [
-            bam.bam.pileup(contig=bam.handle_contig_name(contig), start=start, end=end)
+            bam.bam.pileup(
+                contig=bam.handle_contig_name(self.bed.contig), start=start, end=end
+            )
             for bam in bams
         ]
 
