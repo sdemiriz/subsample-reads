@@ -68,26 +68,30 @@ class BAMloader:
         self.global_keep = []
 
         for seed, bucket, interval in zip(seeds, buckets, self.bed.tree):
+            info(
+                f"Loader - Process interval {self.bed.contig}:{interval.begin}-{interval.end}"
+            )
             np.random.seed(seed)
 
-            for dropped_read in self.global_drop:
-                query_name = dropped_read.query_name
+            # for qname in bucket:
+            #     if qname in self.global_drop:
+            #         bucket[qname] -= 1
 
-                if query_name in self.bucket:
-                    if bucket[query_name] > 1:
-                        bucket[query_name] -= 1
-                    else:
-                        bucket.pop(query_name, None)
+            # bucket = {k: v for k, v in bucket.items() if v > 0}
 
-            drop = np.random.choice(
-                a=bucket.keys(),
-                p=[i / sum(bucket.values()) for i in bucket.values()],
+            bucket_index = range(len(bucket))
+            drop_index = np.random.choice(
+                a=bucket_index,
                 size=round((1 - interval.data) * len(bucket)),
                 replace=False,
             )
-            keep = [k for k in bucket.keys() if k not in drop]
+            keep_index = set(bucket_index) - set(drop_index)
+            drop = [bucket[r] for r in drop_index]
+            keep = [bucket[r] for r in keep_index]
 
-            assert len(drop) + len(keep) == len(bucket)
+            assert len(drop) + len(keep) == len(
+                bucket
+            ), f"{len(drop)} + {len(keep)} != {bucket_index}"
 
             self.global_drop.extend(drop)
             self.global_keep.extend(keep)
@@ -108,7 +112,7 @@ class BAMloader:
         for r in self.bam.fetch(
             contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
         ):
-            if r.query_name in self.global_keep:
+            if r in self.global_keep:
                 out_bam.bam.write(r)
 
         info("Loader - Complete write reads to output file")
@@ -129,24 +133,22 @@ class BAMloader:
         info("Loader - Form buckets from provided intervals")
 
         start, end = self.bed.get_limits()
-        buckets = len(self.bed.tree) * [dict()]
+        buckets = len(self.bed.tree) * [list()]
 
-        for r in self.bam.fetch(
+        all_reads = self.bam.fetch(
             contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
-        ):
+        )
+
+        for r in all_reads:
             if r.is_mapped:
                 pos = r.get_reference_positions()
                 low, hi = min(pos), max(pos)
 
                 for interval, bucket in zip(self.bed.tree, buckets):
                     if self.overlap((low, hi), (interval.begin, interval.end)):
-                        if r.query_name in bucket:
-                            bucket[r.query_name] += 1
-                        else:
-                            bucket[r.query_name] = 1
+                        bucket.append(r)
 
         info("Loader - Complete form buckets from provided intervals")
-        print(len(buckets))
         return buckets
 
     @staticmethod
@@ -173,7 +175,7 @@ class BAMloader:
         if contig not in self.bam.references:
             raise ValueError("Contig name could not be automatically fixed")
 
-        info("Complete handle contig names")
+        info("Loader - Complete handle contig names")
         return contig
 
     @staticmethod
