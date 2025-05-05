@@ -49,18 +49,39 @@ class BAMloader:
         self.bed = Intervals(file=intervals)
         start, end = self.bed.get_limits()
         self.seeds = self.get_interval_seeds(initial_seed=initial_seed)
+        self.buckets = len(self.bed.tree) * [list()]
+        self.reads = []
 
         info(f"Loader - Full region {start}-{end}")
 
-        self.reads = []
+        total_read_count = 0
         for r in self.bam.fetch(
             contig=self.normalize_contig(self.bed.contig), start=start, end=end
         ):
-            self.reads.append(r)
+            if r.is_unmapped:
+                continue
+
+            total_read_count += 1
+            for bucket, interval in zip(self.buckets, self.bed.tree):
+                if self.overlap(
+                    (r.reference_start, r.reference_end), (interval.begin, interval.end)
+                ):
+                    bucket.append(r)
+                    break
+
+        for bucket, interval, seed in zip(self.buckets, self.bed.tree, self.seeds):
+            np.random.seed(seed=seed)
+
+            size = round(interval.data * total_read_count)
+            bucket = np.random.choice(a=bucket, size=size, replace=False)
+            self.reads.extend(bucket)
+
+            print(interval, "\t", size / total_read_count)
 
         self.write_reads(filename=out_bam)
 
     def get_interval_seeds(self, initial_seed: int):
+        np.random.seed(initial_seed)
         return np.random.randint(low=0, high=1000000, size=len(self.bed.tree))
 
     @staticmethod
@@ -86,6 +107,8 @@ class BAMloader:
     def write_reads(self, filename: str) -> None:
 
         out_bam = BAMloader(file=filename, template=self.bam)
+
+        self.reads = set(self.reads)
 
         for r in self.reads:
             out_bam.bam.write(read=r)

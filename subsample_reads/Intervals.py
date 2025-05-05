@@ -45,7 +45,7 @@ class Intervals:
             ), "BED file contains overlapping intervals"
             self.tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
 
-        self.tree = IntervalTree(sorted(self.tree))
+        self.tree = sorted(self.tree)
 
     def get_limits(self):
         """
