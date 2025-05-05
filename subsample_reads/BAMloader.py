@@ -113,6 +113,16 @@ class BAMloader:
 
         info("Loader - Complete write reads to output file")
         out_bam.bam.close()
+        self.index_bam(out_bam.file)
+
+    @staticmethod
+    def index_bam(filename: str) -> None:
+        """ """
+        info("Loader - Index output BAM")
+
+        pysam.index(filename)
+
+        info("Loader - Complete index output BAM")
 
     def form_buckets(self):
         """ """
