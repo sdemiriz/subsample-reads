@@ -21,7 +21,7 @@ class Mapper:
         """
         Constructor for class
         """
-        info("Initialize BAMcharter")
+        info("Mapper - Initialize BAMcharter")
 
         self.bam_filename = bam_filename
         self.contig = str(contig)
@@ -36,19 +36,23 @@ class Mapper:
             self.interval_length = None
             self.interval_count = int(interval_count)
 
-        info("Initialize BAMloader")
+        info("Mapper - Initialize BAMloader")
         self.bam = BAMloader(file=self.bam_filename)
 
-        info("Get intervals for BED file")
+        info("Mapper - Get intervals for BED file")
         self.bed = self.construct_intervals()
 
-        info("Calculate fraction of reads included in each interval")
+        self.total_read_count = self.bam.bam.count(
+            contig=self.contig, start=self.start, end=self.end
+        )
+
+        info("Mapper - Calculate fraction of reads included in each interval")
         self.bed["fraction"] = [
             self.get_fraction(start=row[1], end=row[2])
             for row in self.bed.itertuples(index=False)
         ]
 
-        info(f"Write interval data to BED file")
+        info("Mapper - Write interval data to BED file")
         self.write_bed()
 
     def get_num_reads(self) -> int:
@@ -70,7 +74,9 @@ class Mapper:
         """
         Get number of reads in interval out of all reads in file
         """
-        info(f"Get read count in {start}-{end} interval as fraction of total reads")
+        info(
+            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
+        )
         return (
             self.bam.bam.count(contig=self.contig, start=start, end=end)
             / self.get_num_reads()
@@ -80,7 +86,7 @@ class Mapper:
         """
         Construct BED-formatted DataFrame
         """
-        info("Form intervals for BED file")
+        info("Mapper - Form intervals for BED file")
         interval_boundaries = self.get_interval_boundaries()
 
         bed_columns = ["contig", "start", "end", "fraction"]
@@ -111,7 +117,7 @@ class Mapper:
         region_length = self.end - self.start
 
         if self.interval_length:
-            info("Using interval size to subdivide region")
+            info("Mapper - Using interval size to subdivide region")
 
             interval_boundaries = [
                 i + self.start for i in range(0, region_length, self.interval_length)
@@ -120,7 +126,7 @@ class Mapper:
                 interval_boundaries.append(self.end)
 
         if self.interval_count:
-            info("Using interval count to subdivide region")
+            info("Mapper - Using interval count to subdivide region")
 
             interval_size = round(region_length / self.interval_count)
             interval_boundaries = [
@@ -135,5 +141,5 @@ class Mapper:
         """
         Write output to BED file using filename specified
         """
-        info("Write BED contents to file")
+        info("Mapper - Write BED contents to file")
         self.bed.to_csv(self.bed_filename, sep="\t", index=False, header=False)

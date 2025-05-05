@@ -11,7 +11,7 @@ class BAMloader:
         Constructor:
         If file is initialized with a template and optionally, a template file
         """
-        info("Initialize BAMloader")
+        info("Loader - Initialize BAMloader")
 
         self.file = file
         self.template = template
@@ -19,30 +19,31 @@ class BAMloader:
         self.bam = self.load_bam()
         self.drop_cache = set()
 
-        info("Complete BAMloader")
+        info("Loader - Complete BAMloader")
 
     def load_bam(self) -> pysam.AlignmentFile:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
-        info("Load BAM file")
+        info("Loader - Load BAM file")
 
         if self.template:
-            info(f"Template file supplied: load BAM in write mode")
+
+            info("Loader - Template file supplied: load BAM in write mode")
             bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
-            info(f"Template file not supplied: load BAM in read mode")
+            info("Loader - Template file not supplied: load BAM in read mode")
             bam = pysam.AlignmentFile(self.file, mode="rb")
 
-        info("Complete load BAM file")
+        info("Loader - Complete load BAM file")
         return bam
 
     def run_sampling(self, intervals: str, initial_seed: int, out_bam: str) -> None:
         """
         Trigger the subsampling procedure of the class
         """
-        info("Start sampling all intervals")
+        info("Loader - Start sampling all intervals")
 
         self.bed = Intervals(file=intervals)
         seeds = self.get_sampling_seeds(
@@ -50,18 +51,18 @@ class BAMloader:
         )
         self.sample(intervals=intervals, seeds=seeds)
 
-        info("Complete sampling all intervals")
+        info("Loader - Complete sampling all intervals")
 
         self.write_kept_reads(out_bam=out_bam)
 
-        info("Close input BAM file IO")
+        info("Loader - Close input BAM file IO")
         self.bam.close()
 
     def sample(self, intervals: str, seeds: list):
         """ """
         buckets = self.form_buckets()
 
-        info("Sample reads from input file")
+        info("Loader - Sample reads from input file")
 
         self.global_drop = []
         self.global_keep = []
@@ -91,11 +92,15 @@ class BAMloader:
             self.global_drop.extend(drop)
             self.global_keep.extend(keep)
 
-        info("Complete sample reads from input file")
+            info(
+                f"Loader - Complete process interval {self.bed.contig}:{interval.begin}-{interval.end}"
+            )
+
+        info("Loader - Complete sample reads from input file")
 
     def write_kept_reads(self, out_bam):
         """ """
-        info("Write reads to output file")
+        info("Loader - Write reads to output file")
 
         out_bam = BAMloader(file=out_bam, template=self.bam)
         start, end = self.bed.get_limits()
@@ -106,12 +111,12 @@ class BAMloader:
             if r.query_name in self.global_keep:
                 out_bam.bam.write(r)
 
-        info("Complete write reads to output file")
+        info("Loader - Complete write reads to output file")
         out_bam.bam.close()
 
     def form_buckets(self):
         """ """
-        info("Form buckets from provided intervals")
+        info("Loader - Form buckets from provided intervals")
 
         start, end = self.bed.get_limits()
         buckets = len(self.bed.tree) * [dict()]
@@ -130,7 +135,8 @@ class BAMloader:
                         else:
                             bucket[r.query_name] = 1
 
-        info("Complete form buckets from provided intervals")
+        info("Loader - Complete form buckets from provided intervals")
+        print(len(buckets))
         return buckets
 
     @staticmethod
@@ -144,14 +150,14 @@ class BAMloader:
         """
         Handle contig names based on contigs from BA< file
         """
-        info("Start handle contig names")
+        info("Loader - Start handle contig names")
 
         if contig not in self.bam.references:
             if contig.startswith("chr"):
-                info("Contig starts with 'chr', trying 'N' format")
+                info("Loader - Contig starts with 'chr', trying 'N' format")
                 contig = contig[3:]
             else:
-                info("Contig does not start with 'chr', trying 'chrN' format")
+                info("Loader - Contig does not start with 'chr', trying 'chrN' format")
                 contig = "chr" + contig
 
         if contig not in self.bam.references:
@@ -165,12 +171,12 @@ class BAMloader:
         """
         Generate a number of integer seeds from initial_seed
         """
-        info("Generate seeds")
+        info("Loader - Generate seeds")
 
         np.random.seed(initial_seed)
         seeds = list(np.random.randint(low=1, high=1_000_000, size=count))
 
-        info("Complete generate seeds")
+        info("Loader - Complete generate seeds")
         return seeds
 
     @staticmethod
@@ -178,19 +184,19 @@ class BAMloader:
         """
         Calculate the integer count of reads to be dropped
         """
-        info(f"\tGet dropped reads count")
+        info("Loader - Get dropped reads count")
 
         drop_count = math.ceil((1 - drop_fraction) * total_reads_count)
         assert drop_count >= 0, f"Drop count cannot be negative ({drop_count= })"
 
         try:
             info(
-                f"\tDrop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
+                f"Loader - Drop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
             )
         except ZeroDivisionError:
-            warning(f"\tZero reads in interval")
+            warning(f"Loader - Zero reads in interval")
 
-        info(f"\tComplete get dropped reads count")
+        info("Loader - Complete get dropped reads count")
         return drop_count
 
     def close(self) -> None:

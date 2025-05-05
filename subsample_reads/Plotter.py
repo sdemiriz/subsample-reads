@@ -16,7 +16,7 @@ class Plotter:
         """
         Constructor for plotting utility
         """
-        info(f"Initialize BAMplotter with {bam_files=}, {bed_file=}, {out=}")
+        info(f"Plotter - Initialize Plotter with {bam_files=}, {bed_file=}, {out=}")
 
         self.bed_file = bed_file
         self.bed = Intervals(file=self.bed_file)
@@ -26,13 +26,13 @@ class Plotter:
         self.out = out
         self.plot()
 
-        info(f"Complete BAMplotter")
+        info("Plotter - Complete BAMplotter")
 
     def get_pileups(self) -> list:
         """
         Pileup BAMs for the defined region
         """
-        info("Pileup BAMs")
+        info("Plotter - Pileup BAMs")
 
         start, end = self.bed.get_limits()
         bams = [BAMloader(file=bam) for bam in self.bam_files]
@@ -43,20 +43,21 @@ class Plotter:
             for bam in bams
         ]
 
-        info("Complete pileup BAMs")
+        info("Plotter - Complete pileup BAMs")
         return pileups
 
     def plot(self) -> None:
         """
         Plot provided BAM file pileups
         """
-        info(f"Begin plotting")
+        info("Plotter - Begin plotting")
         fig, ax = plt.subplots(layout="constrained")
 
-        contig, start, end = self.bed.get_limits()
+        start, end = self.bed.get_limits()
         pileups = self.get_pileups()
 
-        for p in pileups:
+        info("Plotter - Iterate pileups")
+        for p, b in zip(pileups, self.bam_files):
 
             pileup = pd.DataFrame(
                 [(a.reference_pos, a.nsegments) for a in p], columns=["coord", "depth"]
@@ -65,17 +66,19 @@ class Plotter:
             ax.plot(
                 pileup["coord"],
                 pileup["depth"],
-                label=f"{self.bed_file.split('.')[-2]}",
+                label=f"{b.split('.')[-2]}",
+                alpha=0.5,
             )
+        info("Plotter - Complete iterate pileups")
 
         ax.grid(visible=True, linestyle="--", linewidth=1)
         ax.ticklabel_format(useOffset=False, style="plain")
-        ax.set_title(f"Coverage across {contig}:{start}-{end}")
+        ax.set_title(f"Coverage across {self.bed.contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")
         ax.set_ylabel("Depth of coverage")
         ax.legend()
 
-        info(f"Complete plotting")
+        info("Plotter - Complete plotting")
 
-        info(f"Save plot")
+        info("Plotter - Save plot")
         plt.savefig(self.out)
