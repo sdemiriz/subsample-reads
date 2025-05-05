@@ -51,24 +51,10 @@ class Mapper:
             self.get_fraction(start=row[1], end=row[2])
             for row in self.bed.itertuples(index=False)
         ]
+        self.bed["fraction"] = self.bed["fraction"] / sum(self.bed["fraction"])
 
         info("Mapper - Write interval data to BED file")
         self.write_bed()
-
-    def get_num_reads(self) -> int:
-        """
-        Get number of reads in contig
-        """
-        info("Get number of reads in contig")
-        return self.bam.bam.count(contig=self.contig, start=self.start, stop=self.end)
-
-    def get_reads_in_region(self):
-        """
-        Get read iterator for reads in specified region
-        """
-        yield from self.bam.bam.fetch(
-            contig=self.contig, start=self.start, stop=self.end
-        )
 
     def get_fraction(self, start: int, end: int) -> float:
         """
@@ -79,7 +65,7 @@ class Mapper:
         )
         return (
             self.bam.bam.count(contig=self.contig, start=start, end=end)
-            / self.get_num_reads()
+            / self.total_read_count
         )
 
     def construct_intervals(self) -> pd.DataFrame:

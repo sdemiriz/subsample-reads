@@ -68,6 +68,6 @@ class Intervals:
         abs_tol = 0.05
         assert math.isclose(
             a=sum(self.bed["fraction"]), b=1.0, abs_tol=abs_tol
-        ), f"Fraction values do not sum close to 1.0"
+        ), f"Fraction values do not sum close to 1.0 ({sum(self.bed['fraction'])})"
 
         info(f"Validate BED file")
