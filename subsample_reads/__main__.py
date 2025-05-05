@@ -12,7 +12,7 @@ logger = getLogger("root")
 basicConfig(
     filename="log.txt",
     level=DEBUG,
-    format="{asctime} - [{levelname}]: {message}",
+    format="{asctime} [{levelname}]: {message}",
     style="{",
     datefmt="%H:%M:%S",
 )
@@ -39,7 +39,7 @@ def sample_mode(args):
     """
     in_bam = BAMloader(file=args.in_bam)
 
-    in_bam.run_sampling(
+    in_bam.sample(
         intervals=args.regions,
         initial_seed=args.seed,
         out_bam=args.out_bam,

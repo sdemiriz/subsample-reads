@@ -20,13 +20,14 @@ class Plotter:
 
         self.bed_file = bed_file
         self.bed = Intervals(file=self.bed_file)
+        self.boundaries = set(list(self.bed.bed["start"]) + list(self.bed.bed["end"]))
 
         self.bam_files = bam_files
 
         self.out = out
         self.plot()
 
-        info("Plotter - Complete BAMplotter")
+        info("Plotter - Complete Plotter")
 
     def get_pileups(self) -> list:
         """
@@ -38,7 +39,7 @@ class Plotter:
         bams = [BAMloader(file=bam) for bam in self.bam_files]
         pileups = [
             bam.bam.pileup(
-                contig=bam.handle_contig_name(self.bed.contig), start=start, end=end
+                contig=bam.normalize_contig(self.bed.contig), start=start, end=end
             )
             for bam in bams
         ]
@@ -71,7 +72,19 @@ class Plotter:
             )
         info("Plotter - Complete iterate pileups")
 
-        ax.grid(visible=True, linestyle="--", linewidth=1)
+        for b in self.boundaries:
+            ax.axvline(x=b, linestyle="--", linewidth=1.5, color="red", alpha=0.3)
+
+        for row in self.bed.bed.iterrows():
+            ax.text(
+                x=(row[1]["start"] + row[1]["end"]) / 2,
+                y=-10,
+                s=str(row[1]["fraction"])[:5],
+                ha="center",
+                size="x-small",
+            )
+
+        # ax.grid(visible=True, linestyle="--", linewidth=1)
         ax.ticklabel_format(useOffset=False, style="plain")
         ax.set_title(f"Coverage across {self.bed.contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")

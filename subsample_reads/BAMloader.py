@@ -1,6 +1,6 @@
 from subsample_reads.Intervals import Intervals
 from logging import info, warning
-import pysam, math
+import pysam, math, os
 import numpy as np
 
 
@@ -39,177 +39,67 @@ class BAMloader:
         info("Loader - Complete load BAM file")
         return bam
 
-    def run_sampling(self, intervals: str, initial_seed: int, out_bam: str) -> None:
-        """
-        Trigger the subsampling procedure of the class
-        """
-        info("Loader - Start sampling all intervals")
+    def sample(
+        self,
+        intervals,
+        initial_seed: int,
+        out_bam: str,
+    ) -> None:
 
         self.bed = Intervals(file=intervals)
-        seeds = self.get_sampling_seeds(
-            initial_seed=initial_seed, count=len(self.bed.tree)
-        )
-        self.sample(intervals=intervals, seeds=seeds)
-
-        info("Loader - Complete sampling all intervals")
-
-        self.write_kept_reads(out_bam=out_bam)
-
-        info("Loader - Close input BAM file IO")
-        self.bam.close()
-
-    def sample(self, intervals: str, seeds: list):
-        """ """
-        buckets = self.form_buckets()
-
-        info("Loader - Sample reads from input file")
-
-        self.global_drop = []
-        self.global_keep = []
-
-        for seed, bucket, interval in zip(seeds, buckets, self.bed.tree):
-            info(
-                f"Loader - Process interval {self.bed.contig}:{interval.begin}-{interval.end}"
-            )
-            np.random.seed(seed)
-
-            # for qname in bucket:
-            #     if qname in self.global_drop:
-            #         bucket[qname] -= 1
-
-            # bucket = {k: v for k, v in bucket.items() if v > 0}
-
-            bucket_index = range(len(bucket))
-            drop_index = np.random.choice(
-                a=bucket_index,
-                size=round((1 - interval.data) * len(bucket)),
-                replace=False,
-            )
-            keep_index = set(bucket_index) - set(drop_index)
-            drop = [bucket[r] for r in drop_index]
-            keep = [bucket[r] for r in keep_index]
-
-            assert len(drop) + len(keep) == len(
-                bucket
-            ), f"{len(drop)} + {len(keep)} != {bucket_index}"
-
-            self.global_drop.extend(drop)
-            self.global_keep.extend(keep)
-
-            info(
-                f"Loader - Complete process interval {self.bed.contig}:{interval.begin}-{interval.end}"
-            )
-
-        info("Loader - Complete sample reads from input file")
-
-    def write_kept_reads(self, out_bam):
-        """ """
-        info("Loader - Write reads to output file")
-
-        out_bam = BAMloader(file=out_bam, template=self.bam)
         start, end = self.bed.get_limits()
+        self.seeds = self.get_interval_seeds(initial_seed=initial_seed)
 
+        info(f"Loader - Full region {start}-{end}")
+
+        self.reads = []
         for r in self.bam.fetch(
-            contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
+            contig=self.normalize_contig(self.bed.contig), start=start, end=end
         ):
-            if r in self.global_keep:
-                out_bam.bam.write(r)
+            self.reads.append(r)
 
-        info("Loader - Complete write reads to output file")
-        out_bam.bam.close()
-        self.index_bam(out_bam.file)
+        self.write_reads(filename=out_bam)
 
-    @staticmethod
-    def index_bam(filename: str) -> None:
-        """ """
-        info("Loader - Index output BAM")
-
-        pysam.index(filename)
-
-        info("Loader - Complete index output BAM")
-
-    def form_buckets(self):
-        """ """
-        info("Loader - Form buckets from provided intervals")
-
-        start, end = self.bed.get_limits()
-        buckets = len(self.bed.tree) * [list()]
-
-        all_reads = self.bam.fetch(
-            contig=self.handle_contig_name(contig=self.bed.contig), start=start, end=end
-        )
-
-        for r in all_reads:
-            if r.is_mapped:
-                pos = r.get_reference_positions()
-                low, hi = min(pos), max(pos)
-
-                for interval, bucket in zip(self.bed.tree, buckets):
-                    if self.overlap((low, hi), (interval.begin, interval.end)):
-                        bucket.append(r)
-
-        info("Loader - Complete form buckets from provided intervals")
-        return buckets
+    def get_interval_seeds(self, initial_seed: int):
+        return np.random.randint(low=0, high=1000000, size=len(self.bed.tree))
 
     @staticmethod
-    def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
-        """
-        Return whether the two provided intervals overlap
-        """
+    def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]):
         return max(pair_x[0], pair_y[0]) < min(pair_x[1], pair_y[1])
 
-    def handle_contig_name(self, contig: str) -> str:
-        """
-        Handle contig names based on contigs from BA< file
-        """
-        info("Loader - Start handle contig names")
+    def normalize_contig(self, contig):
+        contig = str(contig)
+
+        if contig in self.bam.references:
+            return contig
+
+        if contig.startswith("chr"):
+            contig = contig[3:]
+        else:
+            contig = "chr" + contig
 
         if contig not in self.bam.references:
-            if contig.startswith("chr"):
-                info("Loader - Contig starts with 'chr', trying 'N' format")
-                contig = contig[3:]
-            else:
-                info("Loader - Contig does not start with 'chr', trying 'chrN' format")
-                contig = "chr" + contig
+            raise ValueError("Cannot auto-detect contig name")
 
-        if contig not in self.bam.references:
-            raise ValueError("Contig name could not be automatically fixed")
-
-        info("Loader - Complete handle contig names")
         return contig
 
-    @staticmethod
-    def get_sampling_seeds(initial_seed: int, count: int) -> list[int]:
-        """
-        Generate a number of integer seeds from initial_seed
-        """
-        info("Loader - Generate seeds")
+    def write_reads(self, filename: str) -> None:
 
-        np.random.seed(initial_seed)
-        seeds = list(np.random.randint(low=1, high=1_000_000, size=count))
+        out_bam = BAMloader(file=filename, template=self.bam)
 
-        info("Loader - Complete generate seeds")
-        return seeds
+        for r in self.reads:
+            out_bam.bam.write(read=r)
 
-    @staticmethod
-    def get_drop_count(drop_fraction: float, total_reads_count: int) -> int:
-        """
-        Calculate the integer count of reads to be dropped
-        """
-        info("Loader - Get dropped reads count")
+        out_bam.close()
+        self.sort_and_index(filename=filename)
 
-        drop_count = math.ceil((1 - drop_fraction) * total_reads_count)
-        assert drop_count >= 0, f"Drop count cannot be negative ({drop_count= })"
-
-        try:
-            info(
-                f"Loader - Drop {drop_count} / {total_reads_count} = {drop_count / total_reads_count} of reads"
-            )
-        except ZeroDivisionError:
-            warning(f"Loader - Zero reads in interval")
-
-        info("Loader - Complete get dropped reads count")
-        return drop_count
+    def sort_and_index(self, filename: str):
+        """ """
+        temp_file = "temp.bam"
+        pysam.sort(filename, "-o", temp_file)
+        pysam.sort(temp_file, "-o", filename)
+        os.remove(temp_file)
+        pysam.index(filename)
 
     def close(self) -> None:
         self.bam.close()
