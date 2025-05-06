@@ -84,7 +84,6 @@ class Plotter:
                 size="x-small",
             )
 
-        # ax.grid(visible=True, linestyle="--", linewidth=1)
         ax.ticklabel_format(useOffset=False, style="plain")
         ax.set_title(f"Coverage across {self.bed.contig}:{start}-{end}")
         ax.set_xlabel("Chromosomal coordinate")

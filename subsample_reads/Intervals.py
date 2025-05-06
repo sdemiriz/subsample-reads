@@ -1,17 +1,17 @@
-import pandas as pd
 from intervaltree import Interval, IntervalTree
 from logging import info
+import pandas as pd
 import math
 
 
 class Intervals:
 
-    def __init__(self, file: str):
+    def __init__(self, file: str) -> None:
         """
         Class constructor: read, validate BED and populate IntervalTree
         """
         self.file = file
-        info(f"Initialize Intervals from file {self.file}")
+        info(f"Intervals - Initialize Intervals from file {self.file}")
 
         self.read_bed()
         self.contig = self.bed["contig"][0]
@@ -20,10 +20,11 @@ class Intervals:
         self.populate()
         self.validate_bed()
 
-    def read_bed(self):
+    def read_bed(self) -> None:
         """
         Read BED file from supplied filename
         """
+        info(f"Intervals - Read BED {self.file}")
         self.bed = pd.read_csv(
             self.file,
             sep="\t",
@@ -31,13 +32,12 @@ class Intervals:
             names=["contig", "start", "end", "fraction"],
             dtype={"contig": str, "start": int, "end": int, "fraction": float},
         )
-        info(f"Load BED {self.file}")
 
-    def populate(self):
+    def populate(self) -> None:
         """
         Populate IntervalTree using rows from BED file
         """
-        info(f"Populate IntervalTree")
+        info(f"Intervals - Populate interval tree")
         self.tree = IntervalTree()
         for row in self.bed.itertuples():
             assert (
@@ -47,13 +47,13 @@ class Intervals:
 
         self.tree = sorted(self.tree)
 
-    def get_limits(self):
+    def get_limits(self) -> tuple[int, int]:
         """
         Return min and max of the region described in BED file
         """
         return (min(self.bed["start"]), max(self.bed["end"]))
 
-    def validate_bed(self):
+    def validate_bed(self) -> None:
         """
         Checks to validate assumptions when reading intervals from BED file
         """
@@ -70,4 +70,4 @@ class Intervals:
             a=sum(self.bed["fraction"]), b=1.0, abs_tol=abs_tol
         ), f"Fraction values do not sum close to 1.0"
 
-        info(f"Validate BED file")
+        info(f"Intervals - Validate BED file")
