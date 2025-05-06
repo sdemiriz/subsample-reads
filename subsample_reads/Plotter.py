@@ -1,4 +1,5 @@
 from subsample_reads.Intervals import Intervals
+from subsample_reads.Loader import Loader
 import matplotlib.pyplot as plt
 from logging import info
 import pandas as pd
