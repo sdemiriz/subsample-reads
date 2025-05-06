@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
-from subsample_reads.Intervals import Intervals
-from subsample_reads.BAMloader import BAMloader
 from subsample_reads.Plotter import Plotter
+from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
 from logging import getLogger, basicConfig, info, DEBUG
 import argparse
@@ -37,7 +36,7 @@ def sample_mode(args):
     """
     Sample provided BAM file based on regions in BED file
     """
-    in_bam = BAMloader(file=args.in_bam)
+    in_bam = Loader(file=args.in_bam)
 
     in_bam.sample(
         intervals=args.regions,

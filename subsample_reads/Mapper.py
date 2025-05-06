@@ -1,4 +1,4 @@
-from subsample_reads.BAMloader import BAMloader
+from subsample_reads.Loader import Loader
 import pandas as pd
 from logging import info
 
@@ -36,8 +36,8 @@ class Mapper:
             self.interval_length = None
             self.interval_count = int(interval_count)
 
-        info("Mapper - Initialize BAMloader")
-        self.bam = BAMloader(file=self.bam_filename)
+        info("Mapper - Initialize Loader")
+        self.bam = Loader(file=self.bam_filename)
 
         info("Mapper - Get intervals for BED file")
         self.bed = self.construct_intervals()

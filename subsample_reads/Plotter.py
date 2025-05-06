@@ -1,4 +1,3 @@
-from subsample_reads.BAMloader import BAMloader
 from subsample_reads.Intervals import Intervals
 import matplotlib.pyplot as plt
 from logging import info
@@ -36,7 +35,7 @@ class Plotter:
         info("Plotter - Pileup BAMs")
 
         start, end = self.bed.get_limits()
-        bams = [BAMloader(file=bam) for bam in self.bam_files]
+        bams = [Loader(file=bam) for bam in self.bam_files]
         pileups = [
             bam.bam.pileup(
                 contig=bam.normalize_contig(self.bed.contig), start=start, end=end

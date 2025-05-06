@@ -1,11 +1,11 @@
-import unittest, os
-from subsample_reads.BAMloader import BAMloader
+from subsample_reads.Loader import Loader
+import unittest
 
 
-class TestBAMLoader(unittest.TestCase):
+class TestLoader(unittest.TestCase):
 
     test_bam_filename = "HG00157-HLA-sorted.bam"
-    bam = BAMloader(file=test_bam_filename)
+    bam = Loader(file=test_bam_filename)
 
     def testContigNotInReferences(self):
 
