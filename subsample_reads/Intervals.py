@@ -29,8 +29,14 @@ class Intervals:
             self.file,
             sep="\t",
             header=None,
-            names=["contig", "start", "end", "fraction"],
-            dtype={"contig": str, "start": int, "end": int, "fraction": float},
+            names=["contig", "start", "end", "fraction", "read_count"],
+            dtype={
+                "contig": str,
+                "start": int,
+                "end": int,
+                "fraction": float,
+                "read_count": int,
+            },
         )
 
     def populate(self) -> None:
