@@ -49,6 +49,7 @@ class Loader:
         # Get interval info
         self.bed = Intervals(file=intervals)
         start, end = self.bed.get_limits()
+        sample_read_count = sum(self.bed.bed["read_count"])
         info(f"Loader - Full region {start}-{end}")
 
         # Get multiple seeds for per-bucket randomness
@@ -93,9 +94,10 @@ class Loader:
             np.random.seed(seed=seed)
 
             # Sample each bucket for the pre-calculated ratio of reads
-            size = round(interval.data * total_read_count)
-            if size > len(bucket):
-                size = len(bucket)
+            size = round(
+                interval.data * total_read_count * sample_read_count / total_read_count
+            )
+            size = min(len(bucket), size)
             bucket = np.random.choice(a=bucket, size=size, replace=False)
             self.reads.extend(bucket)
 
