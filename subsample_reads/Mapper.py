@@ -53,6 +53,11 @@ class Mapper:
         ]
         self.bed["fraction"] = self.bed["fraction"] / sum(self.bed["fraction"])
 
+        self.bed["read_count"] = [
+            self.get_read_count(start=row[1], end=row[2])
+            for row in self.bed.itertuples(index=False)
+        ]
+
         info("Mapper - Write interval data to BED file")
         self.write_bed()
 
@@ -63,10 +68,16 @@ class Mapper:
         info(
             f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
         )
-        return (
-            self.bam.bam.count(contig=self.contig, start=start, end=end)
-            / self.total_read_count
+        return self.get_read_count(start=start, end=end) / self.total_read_count
+
+    def get_read_count(self, start: int, end: int) -> int:
+        """
+        Get number of reads in interval out of all reads in file
+        """
+        info(
+            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
         )
+        return self.bam.bam.count(contig=self.contig, start=start, end=end)
 
     def construct_intervals(self) -> pd.DataFrame:
         """
@@ -75,24 +86,25 @@ class Mapper:
         info("Mapper - Form intervals for BED file")
         interval_boundaries = self.get_interval_boundaries()
 
-        bed_columns = ["contig", "start", "end", "fraction"]
+        bed_columns = ["contig", "start", "end", "fraction", "read_count"]
 
-        df_precursor = []
+        to_df = []
         for i in range(len(interval_boundaries)):
             if i == 0:
                 pass
             else:
-                df_precursor.append(
+                to_df.append(
                     {
                         bed_columns[0]: self.contig,
                         bed_columns[1]: interval_boundaries[i - 1],
                         bed_columns[2]: interval_boundaries[i],
                         bed_columns[3]: -1,
+                        bed_columns[4]: -1,
                     }
                 )
 
         return pd.DataFrame.from_records(
-            df_precursor,
+            to_df,
             columns=bed_columns,
         )
 
