@@ -67,7 +67,7 @@ class Plotter:
             ax.plot(
                 pileup["coord"],
                 pileup["depth"],
-                label=f"{b.split('.')[-2]}",
+                label=f"{''.join(b.split('.')[:-1])}",
                 alpha=0.5,
             )
         info("Plotter - Complete iterate pileups")
