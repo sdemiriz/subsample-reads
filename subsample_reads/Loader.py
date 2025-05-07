@@ -94,9 +94,9 @@ class Loader:
             np.random.seed(seed=seed)
 
             # Sample each bucket for the pre-calculated ratio of reads
-            size = round(
-                interval.data * total_read_count * sample_read_count / total_read_count
-            )
+            downsample_coefficient = sample_read_count / total_read_count
+            size = round(interval.data * total_read_count * downsample_coefficient)
+
             size = min(len(bucket), size)
             bucket = np.random.choice(a=bucket, size=size, replace=False)
             self.reads.extend(bucket)
