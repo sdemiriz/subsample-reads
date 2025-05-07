@@ -104,13 +104,13 @@ class TestMapper(unittest.TestCase):
             self.filename_root + ".bed",
             sep="\t",
             header=None,
-            names=["contig", "start", "end", "fraction"],
+            names=["contig", "start", "end", "fraction", "read_count"],
         )
         old = pd.read_csv(
             "tests/HG00157-HLA-sorted-test.bed",
             sep="\t",
             header=None,
-            names=["contig", "start", "end", "fraction"],
+            names=["contig", "start", "end", "fraction", "read_count"],
         )
 
         self.assertTrue(
