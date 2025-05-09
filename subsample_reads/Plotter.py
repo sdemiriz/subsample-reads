@@ -1,6 +1,7 @@
 from subsample_reads.Intervals import Intervals
 from subsample_reads.Loader import Loader
 import matplotlib.pyplot as plt
+from pathlib import Path
 from logging import info
 import pandas as pd
 
@@ -67,7 +68,7 @@ class Plotter:
             ax.plot(
                 pileup["coord"],
                 pileup["depth"],
-                label=f"{''.join(b.split('.')[:-1])}",
+                label=Path(b).name,
                 alpha=0.5,
             )
         info("Plotter - Complete iterate pileups")
