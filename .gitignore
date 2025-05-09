@@ -1,7 +1,13 @@
 venv/
 */__pycache__/
-*.png
-*.bam
-*.bam.bai
+*png
+*bam*
+*cram*
 log.txt
 slurm*.out
+Snakefile
+.snakemake/
+config/
+results/
+*.fa
+*fna
