@@ -1,6 +1,6 @@
 from subsample_reads.Loader import Loader
-import pandas as pd
 from logging import info
+import pandas as pd
 
 
 class Mapper:
