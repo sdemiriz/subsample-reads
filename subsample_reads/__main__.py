@@ -22,7 +22,7 @@ def mapper_mode(args):
     Chart a distribution of reads from given BAM file
     """
     Mapper(
-        bam_filename=args.in_bam,
+        bam_filenames=args.in_bams,
         contig=args.contig,
         start=args.start,
         end=args.end,
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     )
 
     mapper = subparsers.add_parser("map")
-    mapper.add_argument("-i", "--in-bam", required=True)
+    mapper.add_argument("-i", "--in-bams", nargs="+", required=True)
 
     intervals = mapper.add_mutually_exclusive_group(required=True)
     intervals.add_argument("-l", "--interval-length", default=None)

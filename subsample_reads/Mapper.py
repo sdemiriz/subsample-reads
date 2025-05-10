@@ -1,6 +1,7 @@
 from subsample_reads.Loader import Loader
 from logging import info
 import pandas as pd
+import pysam
 
 
 class Mapper:
@@ -10,7 +11,7 @@ class Mapper:
 
     def __init__(
         self,
-        bam_filename: str,
+        bam_filenames: list[str],
         contig: str,
         start: str,
         end: str,
@@ -23,7 +24,7 @@ class Mapper:
         """
         info("Mapper - Initialize BAMcharter")
 
-        self.bam_filename = bam_filename
+        self.bam_filenames = bam_filenames
         self.contig = str(contig)
         self.start = int(start)
         self.end = int(end)
@@ -37,47 +38,72 @@ class Mapper:
             self.interval_count = int(interval_count)
 
         info("Mapper - Initialize Loader")
-        self.bam = Loader(file=self.bam_filename)
+        self.bams = [Loader(file=bam_file) for bam_file in self.bam_filenames]
 
         info("Mapper - Get intervals for BED file")
         self.bed = self.construct_intervals()
 
-        self.total_read_count = self.bam.bam.count(
-            contig=self.contig, start=self.start, end=self.end
+        for b in self.bams:
+
+            total_read_count = self.get_read_count(
+                bam=b, start=self.start, end=self.end
+            )
+            header_f = f"{b.file}_fraction"
+            header_r = f"{b.file}_read_count"
+
+            info("Mapper - Calculate fraction of reads included in each interval")
+            self.bed[header_f] = [
+                self.get_fraction(
+                    bam=b, start=row[1], end=row[2], total_read_count=total_read_count
+                )
+                for row in self.bed.itertuples(index=False)
+            ]
+            self.bed[header_f] = self.bed[header_f] / sum(self.bed[header_f])
+
+            self.bed[header_r] = [
+                self.get_read_count(bam=b, start=row[1], end=row[2])
+                for row in self.bed.itertuples(index=False)
+            ]
+
+        self.bed["fraction"] = self.bed[self.filenames_with_suffix("_fraction")].mean(
+            axis=1
         )
 
-        info("Mapper - Calculate fraction of reads included in each interval")
-        self.bed["fraction"] = [
-            self.get_fraction(start=row[1], end=row[2])
-            for row in self.bed.itertuples(index=False)
-        ]
-        self.bed["fraction"] = self.bed["fraction"] / sum(self.bed["fraction"])
+        self.bed["read_count"] = (
+            self.bed[self.filenames_with_suffix("_read_count")].mean(axis=1).astype(int)
+        )
 
-        self.bed["read_count"] = [
-            self.get_read_count(start=row[1], end=row[2])
-            for row in self.bed.itertuples(index=False)
-        ]
+        self.bed.drop(
+            columns=self.filenames_with_suffix("_fraction")
+            + self.filenames_with_suffix("_read_count"),
+            inplace=True,
+        )
 
         info("Mapper - Write interval data to BED file")
         self.write_bed()
 
-    def get_fraction(self, start: int, end: int) -> float:
-        """
-        Get number of reads in interval out of all reads in file
-        """
-        info(
-            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
-        )
-        return self.get_read_count(start=start, end=end) / self.total_read_count
+    def filenames_with_suffix(self, suffix: str):
+        return [f + suffix for f in self.bam_filenames]
 
-    def get_read_count(self, start: int, end: int) -> int:
+    def get_fraction(
+        self, bam: pysam.AlignmentFile, start: int, end: int, total_read_count: int
+    ) -> float:
         """
         Get number of reads in interval out of all reads in file
         """
         info(
             f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
         )
-        return self.bam.bam.count(contig=self.contig, start=start, end=end)
+        return self.get_read_count(bam=bam, start=start, end=end) / total_read_count
+
+    def get_read_count(self, bam: pysam.AlignmentFile, start: int, end: int) -> int:
+        """
+        Get number of reads in interval out of all reads in file
+        """
+        info(
+            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
+        )
+        return bam.bam.count(contig=self.contig, start=start, end=end)
 
     def construct_intervals(self) -> pd.DataFrame:
         """
