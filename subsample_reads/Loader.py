@@ -1,7 +1,7 @@
 from subsample_reads.Intervals import Intervals
 from logging import info, warning
-import pysam, os
 import numpy as np
+import pysam, os
 
 
 class Loader:
@@ -61,25 +61,27 @@ class Loader:
         info(f"Loader - Sort reads into buckets")
         # For all reads
         total_read_count = 0
-        for r in self.bam.fetch(
-            contig=self.normalize_contig(self.bed.contig), start=start, end=end
-        ):
-
-            # Given read is mapped
-            if r.is_unmapped:
-                continue
+        for r in self.get_mapped_reads(start=start, end=end):
 
             # Keep a tally of kept reads
             total_read_count += 1
 
             # Keep a tally of buckets a read can fall into
             candidate_buckets = []
+            previous_has_overlap = False
             for i, interval in enumerate(self.bed.tree):
 
-                if self.overlap(
+                has_overlap = self.overlap(
                     (r.reference_start, r.reference_end), (interval.begin, interval.end)
-                ):
+                )
+
+                # Reads should overlap a number of sequential intervals
+                if has_overlap:
+                    previous_has_overlap = True
                     candidate_buckets.append(i)
+                # If this interval is over, no need to check further intervals
+                elif previous_has_overlap:
+                    break
 
             # Randomly select one bucket to deposit the read
             np.random.seed(seed=initial_seed)
@@ -103,6 +105,16 @@ class Loader:
 
         # Write kept reads
         self.write_reads(filename=out_bam)
+
+    def get_mapped_reads(self, start: int, end: int):
+        """
+        Yield all mapped reads within limits of BED file
+        """
+        for r in self.bam.fetch(
+            contig=self.normalize_contig(self.bed.contig), start=start, end=end
+        ):
+            if r.is_mapped:
+                yield r
 
     def get_interval_seeds(self, initial_seed: int):
         """
