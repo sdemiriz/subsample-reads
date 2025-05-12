@@ -68,7 +68,7 @@ class Plotter:
             ax.plot(
                 pileup["coord"],
                 pileup["depth"],
-                label=Path(b).name,
+                label=Path(b).stem,
                 alpha=0.5,
             )
         info("Plotter - Complete iterate pileups")

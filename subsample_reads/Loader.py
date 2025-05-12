@@ -8,8 +8,7 @@ class Loader:
 
     def __init__(self, file: str, template: pysam.AlignmentFile = None) -> None:
         """
-        Constructor:
-        If file is initialized with a template and optionally, a template file
+        Constructor
         """
         info("Loader - Initialize Loader")
 
@@ -43,6 +42,9 @@ class Loader:
         initial_seed: int,
         out_bam: str,
     ) -> None:
+        """
+        Sample BAM file according to interval data provided
+        """
 
         info(f"Loader - Begin sampling")
 
@@ -59,12 +61,13 @@ class Loader:
         self.buckets = [[] for i in range(len(self.bed.tree))]
 
         info(f"Loader - Sort reads into buckets")
-        # For all reads
-        total_read_count = 0
+
+        # For all mapped reads
+        mapped_read_count = 0
         for r in self.get_mapped_reads(start=start, end=end):
 
             # Keep a tally of kept reads
-            total_read_count += 1
+            mapped_read_count += 1
 
             # Keep a tally of buckets a read can fall into
             candidate_buckets = []
@@ -79,7 +82,7 @@ class Loader:
                 if has_overlap:
                     previous_has_overlap = True
                     candidate_buckets.append(i)
-                # If this interval is over, no need to check further intervals
+                # If no more overlapping intervals in sequence, no need to check further
                 elif previous_has_overlap:
                     break
 
@@ -95,11 +98,9 @@ class Loader:
         for bucket, interval, seed in zip(self.buckets, self.bed.tree, self.seeds):
             np.random.seed(seed=seed)
 
-            # Sample each bucket for the pre-calculated ratio of reads
-            downsample_coefficient = sample_read_count / total_read_count
-            size = round(interval.data * total_read_count * downsample_coefficient)
-
+            size = round(interval.data * sample_read_count)
             size = min(len(bucket), size)
+
             bucket = np.random.choice(a=bucket, size=size, replace=False)
             self.reads.extend(bucket)
 
@@ -118,23 +119,22 @@ class Loader:
 
     def get_interval_seeds(self, initial_seed: int):
         """
-        Generate a number of reads equal to intervals received from BED file
+        Generate a seed per interval provided
         """
         np.random.seed(initial_seed)
         info(f"Loader - Generate random seeds")
-        return np.random.randint(low=0, high=1000000, size=len(self.bed.tree))
+        return np.random.randint(low=0, high=1_000_000, size=len(self.bed.tree))
 
     @staticmethod
     def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
         """
-        Confirm whether two provided 1D intervals overlap
+        Determine whether two provided 1D intervals overlap
         """
         return max(pair_x[0], pair_y[0]) < min(pair_x[1], pair_y[1])
 
     def normalize_contig(self, contig) -> str:
         """
-        Handle both chrN and N contig name descriptions
-        (other formats not supported)
+        Handle both chrN and N contig names (other formats not supported)
         """
         info(f"Loader - Normalize contig name {contig}")
         contig = str(contig)
@@ -174,14 +174,17 @@ class Loader:
         Sort, then index file
         """
         info(f"Loader - Sort and index output BAM file")
+
         temp_file = "temp.bam"
         pysam.sort(filename, "-o", temp_file)
         os.rename(src=temp_file, dst=filename)
         pysam.index(filename)
 
+        info(f"Loader - Compelte sort and index output BAM file")
+
     def close(self) -> None:
         """
         Close BAM file using pysam's internal method
         """
-        info(f"Loader - Sort and index output BAM file")
+        info(f"Loader - Close BAM file")
         self.bam.close()
