@@ -40,7 +40,7 @@ def sample_mode(args):
     in_bam = Loader(file=args.in_bam)
 
     in_bam.sample(
-        intervals=args.regions,
+        bed_dir=args.bed_dir,
         initial_seed=args.seed,
         out_bam=args.out_bam,
     )
@@ -80,13 +80,13 @@ if __name__ == "__main__":
     mapper.add_argument("-s", "--start", required=True)
     mapper.add_argument("-e", "--end", required=True)
 
-    mapper.add_argument("-d", "--bed_dir", default="bed/")
+    mapper.add_argument("-d", "--bed_dir")
     mapper.set_defaults(func=mapper_mode)
 
     # Sampling
     sample = subparsers.add_parser("sample")
     sample.add_argument("-i", "--in-bam", required=True)
-    sample.add_argument("-r", "--regions", required=True)
+    sample.add_argument("-d", "--bed_dir", default="bed")
     sample.add_argument("-o", "--out-bam", default="out.bam")
     sample.add_argument("-s", "--seed", default=42)
     sample.set_defaults(func=sample_mode)

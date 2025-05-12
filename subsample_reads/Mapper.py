@@ -18,7 +18,7 @@ class Mapper:
         end: str,
         interval_length: str | None,
         interval_count: str | None,
-        bed_dir: str,
+        bed_dir: str | None,
     ) -> None:
         """
         Constructor for class
@@ -26,11 +26,12 @@ class Mapper:
         info("Mapper - Initialize BAMcharter")
 
         self.bam_filename = bam_filename
+        self.bed_dir = bed_dir
         self.contig = str(contig)
         self.start = int(start)
         self.end = int(end)
 
-        self.bed_dir = self.make_bed_dir(bed_dir)
+        self.make_bed_dir()
         self.bed_filename = (
             self.bed_dir / Path(self.bam_filename).with_suffix(".bed").name
         )
@@ -67,10 +68,10 @@ class Mapper:
         info("Mapper - Write interval data to BED file")
         self.write_bed()
 
-    def make_bed_dir(self, bed_dir: str) -> None:
+    def make_bed_dir(self) -> None:
         """ """
-        Path(bed_dir).mkdir(parents=True, exist_ok=True)
-        return Path(bed_dir)
+        self.bed_dir = Path("bed") / Path(f"{self.contig}:{self.start}-{self.end}")
+        self.bed_dir.mkdir(parents=True, exist_ok=True)
 
     def get_fraction(self, start: int, end: int, total_read_count: int) -> float:
         """
