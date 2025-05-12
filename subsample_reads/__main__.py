@@ -21,15 +21,16 @@ def mapper_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    Mapper(
-        bam_filenames=args.in_bams,
-        contig=args.contig,
-        start=args.start,
-        end=args.end,
-        interval_length=args.interval_length,
-        interval_count=args.interval_count,
-        bed_filename=args.regions,
-    )
+    for file in args.in_bams:
+        Mapper(
+            bam_filename=file,
+            contig=args.contig,
+            start=args.start,
+            end=args.end,
+            interval_length=args.interval_length,
+            interval_count=args.interval_count,
+            bed_dir=args.bed_dir,
+        )
 
 
 def sample_mode(args):
@@ -56,7 +57,7 @@ def plotter_mode(args):
 
 if __name__ == "__main__":
 
-    info("Begin log")
+    info("Main - Begin log")
 
     parser = argparse.ArgumentParser(
         prog="subsample-reads",
@@ -67,6 +68,7 @@ if __name__ == "__main__":
         title="subcommands", description="valid subcommands", required=True
     )
 
+    # Mapping
     mapper = subparsers.add_parser("map")
     mapper.add_argument("-i", "--in-bams", nargs="+", required=True)
 
@@ -78,9 +80,10 @@ if __name__ == "__main__":
     mapper.add_argument("-s", "--start", required=True)
     mapper.add_argument("-e", "--end", required=True)
 
-    mapper.add_argument("-r", "--regions", default="out.bed")
+    mapper.add_argument("-d", "--bed_dir", default="bed/")
     mapper.set_defaults(func=mapper_mode)
 
+    # Sampling
     sample = subparsers.add_parser("sample")
     sample.add_argument("-i", "--in-bam", required=True)
     sample.add_argument("-r", "--regions", required=True)
@@ -88,6 +91,7 @@ if __name__ == "__main__":
     sample.add_argument("-s", "--seed", default=42)
     sample.set_defaults(func=sample_mode)
 
+    # Plotting
     plotter = subparsers.add_parser("plot")
     plotter.add_argument("-i", "--in-bam", nargs="+", required=True)
     plotter.add_argument("-r", "--regions", required=True)
@@ -95,7 +99,7 @@ if __name__ == "__main__":
     plotter.set_defaults(func=plotter_mode)
 
     args = parser.parse_args()
-    info(f"Accept arguments: {args}")
+    info(f"Main - Accept arguments: {args}")
 
     args.func(args)
 
