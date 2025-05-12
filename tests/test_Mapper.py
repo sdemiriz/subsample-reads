@@ -5,7 +5,7 @@ import pandas as pd
 
 class TestMapper(unittest.TestCase):
 
-    filename_root = "HG00157-HLA-sorted"
+    filename_root = "tests/HG00157-HLA-sorted"
     contig = "chr6"
     start = "25000000"
     end = "35000000"
@@ -13,7 +13,7 @@ class TestMapper(unittest.TestCase):
     length = "1000000"
 
     count_mapper = Mapper(
-        bam_filename=filename_root + ".bam",
+        bam_filenames=[filename_root + ".bam"],
         contig=contig,
         start=start,
         end=end,
@@ -24,7 +24,7 @@ class TestMapper(unittest.TestCase):
 
     def testCorrectArgumentTypes_Count(self):
 
-        self.assertIsInstance(self.count_mapper.bam_filename, str)
+        self.assertIsInstance(self.count_mapper.bam_filenames, list)
         self.assertIsInstance(self.count_mapper.contig, str)
         self.assertIsInstance(self.count_mapper.start, int)
         self.assertIsInstance(self.count_mapper.end, int)
@@ -35,7 +35,7 @@ class TestMapper(unittest.TestCase):
 
     def testCorrectArgumentValues_Count(self):
 
-        self.assertEqual(self.count_mapper.bam_filename, self.filename_root + ".bam")
+        self.assertEqual(self.count_mapper.bam_filenames, [self.filename_root + ".bam"])
         self.assertEqual(self.count_mapper.contig, "chr6")
         self.assertEqual(self.count_mapper.start, int(self.start))
         self.assertEqual(self.count_mapper.end, int(self.end))
@@ -43,7 +43,7 @@ class TestMapper(unittest.TestCase):
         self.assertEqual(self.count_mapper.bed_filename, self.filename_root + ".bed")
 
     length_mapper = Mapper(
-        bam_filename=filename_root + ".bam",
+        bam_filenames=[filename_root + ".bam"],
         contig=contig,
         start=start,
         end=end,
@@ -54,7 +54,7 @@ class TestMapper(unittest.TestCase):
 
     def testCorrectArgumentTypes_Length(self):
 
-        self.assertIsInstance(self.length_mapper.bam_filename, str)
+        self.assertIsInstance(self.length_mapper.bam_filenames, list)
         self.assertIsInstance(self.length_mapper.contig, str)
         self.assertIsInstance(self.length_mapper.start, int)
         self.assertIsInstance(self.length_mapper.end, int)
@@ -65,7 +65,9 @@ class TestMapper(unittest.TestCase):
 
     def testCorrectArgumentValues_Length(self):
 
-        self.assertEqual(self.length_mapper.bam_filename, self.filename_root + ".bam")
+        self.assertEqual(
+            self.length_mapper.bam_filenames, [self.filename_root + ".bam"]
+        )
         self.assertEqual(self.length_mapper.contig, "chr6")
         self.assertEqual(self.length_mapper.start, int(self.start))
         self.assertEqual(self.length_mapper.end, int(self.end))
@@ -77,7 +79,7 @@ class TestMapper(unittest.TestCase):
         os.remove(self.filename_root + ".bed")
 
         Mapper(
-            bam_filename=self.filename_root + ".bam",
+            bam_filenames=[self.filename_root + ".bam"],
             contig=self.contig,
             start=self.start,
             end=self.end,
@@ -91,7 +93,7 @@ class TestMapper(unittest.TestCase):
     def testBEDcontentsIdentical(self):
 
         Mapper(
-            bam_filename=self.filename_root + ".bam",
+            bam_filenames=[self.filename_root + ".bam"],
             contig=self.contig,
             start=self.start,
             end=self.end,

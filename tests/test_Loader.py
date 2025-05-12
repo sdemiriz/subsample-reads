@@ -4,7 +4,7 @@ import unittest
 
 class TestLoader(unittest.TestCase):
 
-    test_bam_filename = "HG00157-HLA-sorted.bam"
+    test_bam_filename = "tests/HG00157-HLA-sorted.bam"
     bam = Loader(file=test_bam_filename)
 
     def testContigNotInReferences(self):
