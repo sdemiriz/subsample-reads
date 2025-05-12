@@ -74,9 +74,9 @@ if __name__ == "__main__":
     intervals.add_argument("-l", "--interval-length", default=None)
     intervals.add_argument("-n", "--interval-count", default=None)
 
-    mapper.add_argument("-c", "--contig", default="chr6")
-    mapper.add_argument("-s", "--start", default=25_000_000)
-    mapper.add_argument("-e", "--end", default=35_000_000)
+    mapper.add_argument("-c", "--contig", required=True)
+    mapper.add_argument("-s", "--start", required=True)
+    mapper.add_argument("-e", "--end", required=True)
 
     mapper.add_argument("-r", "--regions", default="out.bed")
     mapper.set_defaults(func=mapper_mode)
