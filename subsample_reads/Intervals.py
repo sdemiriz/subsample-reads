@@ -1,7 +1,7 @@
 from intervaltree import Interval, IntervalTree
+from pathlib import Path
 from logging import info
 import pandas as pd
-import math
 
 
 class Intervals:
@@ -13,17 +13,17 @@ class Intervals:
         info(f"Intervals - Initialize Intervals")
         self.files = files
 
-        self.beds, self.trees = [], []
-        for file in self.files:
-            bed = self.read_bed(file=file)
+        # Read and validate BED files
+        self.get_beds()
+        self.validate()
 
-            self.beds.append(bed)
-            self.tree.append(self.populate(bed=bed))
+        # Get contig, start, end and various statistics from BEDs
+        self.get_stats()
+        self.get_contig()
+        self.get_limits()
 
-            self.validate_bed(bed=bed)
-
-        info(f"Intervals - Set contig")
-        self.contig = self.beds[0]["contig"][0]
+        # Consolidate BEDs into IntervalTree
+        self.populate_tree()
 
         self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
         self.fractions = [
@@ -32,14 +32,46 @@ class Intervals:
 
         info(f"Intervals - Complete initialize Intervals")
 
-    def read_bed(self, file: str) -> list[pd.DataFrame]:
+    def __len__(self):
+        return len(self.beds)
+
+    def get_beds(self):
+        """
+        Read all input files as DataFrames
+        """
+        info("Intervals - Read in BED file(s)")
+        self.beds = [self.read_bed(path=file) for file in self.files]
+
+    def get_contig(self):
+        """
+        Gets contig from first BED file (assumes BED files have been validated)
+        """
+        info("Intervals - Set contig value")
+        self.contig = self.beds[0]["contig"][0]
+
+    def get_stats(self):
+        """
+        Calculate statistics from BED file read counts
+        """
+        info(f"Intervals - Calculate collective statistics for BED files")
+
+        self.stats = pd.DataFrame()
+        for name, bed in zip(self.files, self.beds):
+            self.stats[Path(name).stem] = bed["read_count"]
+
+        percentiles = [0.1, 0.25, 0.5, 0.75, 0.9]
+        self.stats = (
+            self.stats.transpose().describe(percentiles=percentiles).transpose()
+        )
+
+    def read_bed(self, path: str) -> list[pd.DataFrame]:
         """
         Read BED file from supplied filename
         """
-        info(f"Intervals - Read BED")
+        info(f"Intervals - Read BED {path}")
 
-        bed = pd.read_csv(
-            file,
+        return pd.read_csv(
+            path,
             sep="\t",
             header=None,
             names=["contig", "start", "end", "read_count"],
@@ -51,44 +83,58 @@ class Intervals:
             },
         )
 
-        info(f"Intervals - Complete read BED")
-        return bed
-
-    def populate(self, bed: pd.DataFrame) -> None:
+    def populate_tree(self) -> None:
         """
         Populate IntervalTree using rows from BED file
         """
-        info(f"Intervals - Populate interval tree")
+        info("Intervals - Populate interval tree using mean read_counts")
 
         tree = IntervalTree()
-        for row in bed.itertuples():
-            assert (
-                len(tree.overlap(begin=row[2], end=row[3])) == 0
-            ), "BED file contains overlapping intervals"
-            tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
+        for row_bed, row_stats in zip(
+            self.beds[0].itertuples(index=False), self.stats.itertuples(index=False)
+        ):
+            # Make the data field the mean value
+            tree.add(Interval(begin=row_bed[1], end=row_bed[2], data=row_stats[1]))
 
-        info(f"Intervals - Complete populate interval tree")
-        return sorted(tree)
+        self.tree = IntervalTree(sorted(tree))
 
     def get_limits(self) -> tuple[int, int]:
         """
-        Return min and max of the region described in BED file
+        Return start and end of region from the first BED file (assumes BED files have been validated)
         """
-        return (min(self.beds[0]["start"]), max(self.beds[0]["end"]))
+        self.start, self.end = min(self.beds[0]["start"]), max(self.beds[0]["end"])
 
-    def validate_bed(self, bed: pd.DataFrame) -> None:
+    def validate(self) -> None:
         """
-        Checks to validate assumptions when reading intervals from BED file
+        Validate BED files when
         """
-        info(f"Intervals - Validate BED file")
+        info(f"Intervals - Validate last BED file and tree")
 
-        assert (
-            len(pd.unique(bed["contig"])) == 1
-        ), f"Not all contig values in BED file are the same"
+        contig = ""
+        start, end = None, None
+        for bed in self.beds:
+            # Check for different contigs within BED files
+            assert (
+                len(pd.unique(bed["contig"])) == 1
+            ), f"Not all contig values in BED file identical"
 
-        abs_tol = 0.05
-        assert math.isclose(
-            a=sum(bed["fraction"]), b=1.0, abs_tol=abs_tol
-        ), f"Fraction values do not sum close to 1.0"
+            # Check for different contigs between BED files
+            if contig:
+                assert contig == bed["contig"][0], "Contig differs from other contigs"
+                contig = bed["contig"][0]
 
-        info(f"Intervals - Complete validate BED file")
+            # Check all start and end cooridnates match between BED files
+            if start and end:
+                assert start == min(
+                    bed["start"]
+                ), "Start coordinate differs from other start coordinates"
+                assert end == max(
+                    bed["end"]
+                ), "End coordinate differs from other end coordinates"
+                start, end = min(bed["start"]), max(bed["end"])
+
+        # Check for interval overlaps
+        before = self.tree.copy()
+        self.tree.split_overlaps()
+        after = self.tree
+        assert before == after, "BED file contains overlapping intervals"
