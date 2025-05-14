@@ -4,33 +4,29 @@ from subsample_reads.Intervals import Intervals
 
 class TestIntervals(unittest.TestCase):
 
-    def testNonUniqueContigsInBED(self):
+    def testCorrectColumns(self):
+        i = Intervals(files=["tests/test-dataframe-dimensions.bed"])
+        for bed in i.beds:
+            self.assertListEqual(
+                ["contig", "start", "end", "read_count"], list(bed.columns)
+            )
+
+    def testCorrectDimensions(self):
+        i = Intervals(files=["tests/test-dataframe-dimensions.bed"])
+        for bed in i.beds:
+            self.assertTupleEqual((10, 4), bed.shape)
+
+    def testDifferentContigsInBED(self):
         with self.assertRaises(AssertionError) as context:
-            Intervals(file="tests/contigs-not-unique.bed")
+            Intervals(files=["tests/test-contigs-not-unique.bed"])
 
         self.assertEqual(
-            str(context.exception), f"Not all contig values in BED file are the same"
-        )
-
-    def testFractionsOutsideInterval01(self):
-        with self.assertRaises(AssertionError) as context:
-            Intervals(file="tests/fractions-outside-expected-interval.bed")
-
-        self.assertEqual(
-            str(context.exception), f"Fraction values not within [0.0. 1.0] interval"
-        )
-
-    def testFractionsNotCloseToOne(self):
-        with self.assertRaises(AssertionError) as context:
-            Intervals(file="tests/not-sums-to-oneish.bed")
-
-        self.assertEqual(
-            str(context.exception), f"Fraction values do not sum close to 1.0"
+            str(context.exception), f"Not all contig values in BED file identical"
         )
 
     def testOverlappingIntervals(self):
         with self.assertRaises(AssertionError) as context:
-            Intervals(file="tests/overlapping-intervals.bed")
+            Intervals(files=["tests/test-overlapping-intervals.bed"])
 
         self.assertEqual(
             str(context.exception), f"BED file contains overlapping intervals"
