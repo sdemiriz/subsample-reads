@@ -6,74 +6,89 @@ import math
 
 class Intervals:
 
-    def __init__(self, file: str) -> None:
+    def __init__(self, files: str) -> None:
         """
         Class constructor: read, validate BED and populate IntervalTree
         """
-        self.file = file
-        info(f"Intervals - Initialize Intervals from file {self.file}")
+        info(f"Intervals - Initialize Intervals")
+        self.files = files
 
-        self.read_bed()
-        self.contig = self.bed["contig"][0]
-        info(f"Set contig {self.contig}")
+        self.beds, self.trees = [], []
+        for file in self.files:
+            bed = self.read_bed(file=file)
 
-        self.populate()
-        self.validate_bed()
+            self.beds.append(bed)
+            self.tree.append(self.populate(bed=bed))
 
-    def read_bed(self) -> None:
+            self.validate_bed(bed=bed)
+
+        info(f"Intervals - Set contig")
+        self.contig = self.beds[0]["contig"][0]
+
+        self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
+        self.fractions = [
+            bed["read_count"] / sum(bed["read_count"]) for bed in self.beds
+        ]
+
+        info(f"Intervals - Complete initialize Intervals")
+
+    def read_bed(self, file: str) -> list[pd.DataFrame]:
         """
         Read BED file from supplied filename
         """
-        info(f"Intervals - Read BED {self.file}")
-        self.bed = pd.read_csv(
-            self.file,
+        info(f"Intervals - Read BED")
+
+        bed = pd.read_csv(
+            file,
             sep="\t",
             header=None,
-            names=["contig", "start", "end", "fraction", "read_count"],
+            names=["contig", "start", "end", "read_count"],
             dtype={
                 "contig": str,
                 "start": int,
                 "end": int,
-                "fraction": float,
                 "read_count": int,
             },
         )
 
-    def populate(self) -> None:
+        info(f"Intervals - Complete read BED")
+        return bed
+
+    def populate(self, bed: pd.DataFrame) -> None:
         """
         Populate IntervalTree using rows from BED file
         """
         info(f"Intervals - Populate interval tree")
-        self.tree = IntervalTree()
-        for row in self.bed.itertuples():
-            assert (
-                len(self.tree.overlap(begin=row[2], end=row[3])) == 0
-            ), "BED file contains overlapping intervals"
-            self.tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
 
-        self.tree = sorted(self.tree)
+        tree = IntervalTree()
+        for row in bed.itertuples():
+            assert (
+                len(tree.overlap(begin=row[2], end=row[3])) == 0
+            ), "BED file contains overlapping intervals"
+            tree.add(Interval(begin=row[2], end=row[3], data=row[4]))
+
+        info(f"Intervals - Complete populate interval tree")
+        return sorted(tree)
 
     def get_limits(self) -> tuple[int, int]:
         """
         Return min and max of the region described in BED file
         """
-        return (min(self.bed["start"]), max(self.bed["end"]))
+        return (min(self.beds[0]["start"]), max(self.beds[0]["end"]))
 
-    def validate_bed(self) -> None:
+    def validate_bed(self, bed: pd.DataFrame) -> None:
         """
         Checks to validate assumptions when reading intervals from BED file
         """
-        assert (
-            len(pd.unique(self.bed["contig"])) == 1
-        ), f"Not all contig values in BED file are the same"
+        info(f"Intervals - Validate BED file")
 
-        assert (self.bed["fraction"] >= 0.0).all() and (
-            self.bed["fraction"] <= 1.0
-        ).all(), f"Fraction values not within [0.0. 1.0] interval"
+        assert (
+            len(pd.unique(bed["contig"])) == 1
+        ), f"Not all contig values in BED file are the same"
 
         abs_tol = 0.05
         assert math.isclose(
-            a=sum(self.bed["fraction"]), b=1.0, abs_tol=abs_tol
+            a=sum(bed["fraction"]), b=1.0, abs_tol=abs_tol
         ), f"Fraction values do not sum close to 1.0"
 
-        info(f"Intervals - Validate BED file")
+        info(f"Intervals - Complete validate BED file")
