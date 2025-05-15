@@ -95,10 +95,10 @@ class Intervals:
         match query:
             case "mean":
                 query_index = list(self.stats.columns).index(query)
-                iterable = self.stats[query_index]
+                values = self.stats[query_index]
             case "random":
                 random.seed(42)
-                iterable = [
+                values = [
                     random.uniform(i[0], i[1])
                     for i in self.stats[["min", "max"]].itertuples(index=False)
                 ]
@@ -106,7 +106,7 @@ class Intervals:
                 raise Exception("Invalid query value in Intervals.populate_tree()")
 
         tree = IntervalTree()
-        for row_bed, value in zip(self.beds[0].itertuples(index=False), iterable):
+        for row_bed, value in zip(self.beds[0].itertuples(index=False), values):
             tree.add(Interval(begin=row_bed[1], end=row_bed[2], data=value))
 
         self.tree = IntervalTree(sorted(tree))
