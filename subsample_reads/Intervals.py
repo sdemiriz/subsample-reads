@@ -2,6 +2,7 @@ from intervaltree import Interval, IntervalTree
 from pathlib import Path
 from logging import info
 import pandas as pd
+import random
 
 
 class Intervals:
@@ -23,7 +24,7 @@ class Intervals:
         self.get_limits()
 
         # Consolidate BEDs into IntervalTree
-        self.populate_tree()
+        self.populate_tree(query="mean")
 
         self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
         self.fractions = [
@@ -55,13 +56,15 @@ class Intervals:
         """
         info(f"Intervals - Calculate collective statistics for BED files")
 
-        self.stats = pd.DataFrame()
+        values = pd.DataFrame()
         for name, bed in zip(self.files, self.beds):
-            self.stats[Path(name).stem] = bed["read_count"]
+            values[Path(name).stem] = bed["read_count"]
 
-        percentiles = [0.1, 0.25, 0.5, 0.75, 0.9]
-        self.stats = (
-            self.stats.transpose().describe(percentiles=percentiles).transpose()
+        percentiles = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+        stats = values.transpose().describe(percentiles=percentiles).transpose()
+
+        self.stats = pd.concat(
+            [self.beds[0][["contig", "start", "end"]], stats, values], axis=1
         )
 
     def read_bed(self, path: str) -> list[pd.DataFrame]:
@@ -83,18 +86,28 @@ class Intervals:
             },
         )
 
-    def populate_tree(self) -> None:
+    def populate_tree(self, query: str = "mean") -> None:
         """
         Populate IntervalTree using rows from BED file
         """
         info("Intervals - Populate interval tree using mean read_counts")
 
+        match query:
+            case "mean":
+                query_index = list(self.stats.columns).index(query)
+                iterable = self.stats[query_index]
+            case "random":
+                random.seed(42)
+                iterable = [
+                    random.uniform(i[0], i[1])
+                    for i in self.stats[["min", "max"]].itertuples(index=False)
+                ]
+            case _:
+                raise Exception("Invalid query value in Intervals.populate_tree()")
+
         tree = IntervalTree()
-        for row_bed, row_stats in zip(
-            self.beds[0].itertuples(index=False), self.stats.itertuples(index=False)
-        ):
-            # Make the data field the mean value
-            tree.add(Interval(begin=row_bed[1], end=row_bed[2], data=row_stats[1]))
+        for row_bed, value in zip(self.beds[0].itertuples(index=False), iterable):
+            tree.add(Interval(begin=row_bed[1], end=row_bed[2], data=value))
 
         self.tree = IntervalTree(sorted(tree))
 
