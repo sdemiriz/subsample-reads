@@ -21,16 +21,15 @@ def mapper_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    for file in args.in_bams:
-        Mapper(
-            bam_filename=file,
-            contig=args.contig,
-            start=args.start,
-            end=args.end,
-            interval_length=args.interval_length,
-            interval_count=args.interval_count,
-            bed_dir=args.bed_dir,
-        )
+    Mapper(
+        bam_paths=args.in_bams,
+        contig=args.contig,
+        start=args.start,
+        end=args.end,
+        interval_length=args.interval_length,
+        interval_count=args.interval_count,
+        bed_dir=args.bed_dir,
+    )
 
 
 def sample_mode(args):
@@ -54,7 +53,13 @@ def plotter_mode(args):
     """
     Chart a distribution of reads from given BAM file
     """
-    Plotter(bam_files=args.in_bam, bed_file=args.regions, out=args.output)
+    Plotter(
+        bam_files=args.in_bam,
+        bed_dir=args.bed_dir,
+        bed_files=args.bed_files,
+        bed_count=args.bed_count,
+        out=args.output,
+    )
 
 
 if __name__ == "__main__":
@@ -186,6 +191,12 @@ if __name__ == "__main__":
         required=True,
         help="One or more BAM files to plot depth for based on provided BED file(s).",
     )
+    plotter.add_argument(
+        "-d",
+        "--bed-dir",
+        default="bed/",
+        help="Top level directory to fetch BED files from. The subdirectory to read from with the name format contig:start-end are determined automatically based on the selected BED file(s).",
+    )
 
     bed_files = plotter.add_mutually_exclusive_group(required=True)
     bed_files.add_argument(
@@ -210,4 +221,4 @@ if __name__ == "__main__":
     info(f"Main - Accept arguments")
 
     args.func(args)
-    info(f"End log\n")
+    info(f"Main - End log\n")

@@ -12,7 +12,7 @@ class Mapper:
 
     def __init__(
         self,
-        bam_filename: str,
+        bam_paths: list[str],
         contig: str,
         start: str,
         end: str,
@@ -23,102 +23,99 @@ class Mapper:
         """
         Constructor for class
         """
-        info("Mapper - Initialize BAMcharter")
+        info("Mapper - Initialize Mapper")
 
-        self.bam_filename = bam_filename
+        self.bam_paths = bam_paths
         self.bed_dir = bed_dir
         self.contig = str(contig)
         self.start = int(start)
         self.end = int(end)
 
         self.make_bed_dir()
-        self.bed_filename = (
-            self.bed_dir / Path(self.bam_filename).with_suffix(".bed").name
+        self.make_bed_filenames()
+        self.handle_intervals(
+            interval_length=interval_length, interval_count=interval_count
         )
+        self.load_bams()
+        self.construct_beds()
+        self.populate_read_counts()
 
+        info("Mapper - Write interval data to BED files")
+        self.write_beds()
+
+    def populate_read_counts(self):
+        """
+        Fill read counts in all BED DataFrames
+        """
+        info(f"Mapper - Populate read counts in BED files")
+        for bed, bam in zip(self.beds, self.bams):
+            bed["read_count"] = [
+                bam.bam.count(contig=self.contig, start=row[1], end=row[2])
+                for row in bed.itertuples(index=False)
+            ]
+
+    def load_bams(self) -> None:
+        """
+        Initialize Loaders for all supplied BAMs
+        """
+        info(f"Mapper - Initialize Loaders for supplied BAM files")
+        self.bams = [Loader(file=bam_path) for bam_path in self.bam_paths]
+
+    def handle_intervals(self, interval_length: int, interval_count: int) -> None:
+        """
+        Settle whether to use interval length or count when mapping
+        """
         if interval_length:
             self.interval_length = int(interval_length)
             self.interval_count = None
-        if interval_count:
+        elif interval_count:
             self.interval_length = None
             self.interval_count = int(interval_count)
 
-        info("Mapper - Initialize Loader")
-        self.bam = Loader(file=self.bam_filename)
-
-        info("Mapper - Get intervals for BED file")
-        self.bed = self.construct_intervals()
-
-        total_read_count = self.get_read_count(start=self.start, end=self.end)
-
-        info("Mapper - Calculate fraction of reads included in each interval")
-        self.bed["fraction"] = [
-            self.get_fraction(
-                start=row[1], end=row[2], total_read_count=total_read_count
-            )
-            for row in self.bed.itertuples(index=False)
+    def make_bed_filenames(self) -> None:
+        """
+        Generate output BED filenames from  BAM filenames
+        """
+        self.bed_filenames = [
+            self.bed_dir / Path(bam_path).with_suffix(".bed").name
+            for bam_path in self.bam_paths
         ]
-        self.bed["fraction"] = self.bed["fraction"] / sum(self.bed["fraction"])
-
-        self.bed["read_count"] = [
-            self.get_read_count(start=row[1], end=row[2])
-            for row in self.bed.itertuples(index=False)
-        ]
-
-        info("Mapper - Write interval data to BED file")
-        self.write_bed()
 
     def make_bed_dir(self) -> None:
-        """ """
-        self.bed_dir = Path("bed") / Path(f"{self.contig}:{self.start}-{self.end}")
+        """
+        Make the target directory to place BED files into
+        """
+        self.bed_dir = Path(self.bed_dir)
         self.bed_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_fraction(self, start: int, end: int, total_read_count: int) -> float:
-        """
-        Get number of reads in interval out of all reads in file
-        """
-        info(
-            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
-        )
-        return self.get_read_count(start=start, end=end) / total_read_count
-
-    def get_read_count(self, start: int, end: int) -> int:
-        """
-        Get number of reads in interval out of all reads in file
-        """
-        info(
-            f"Mapper - Get read count in {start}-{end} interval as fraction of total reads"
-        )
-        return self.bam.bam.count(contig=self.contig, start=start, end=end)
-
-    def construct_intervals(self) -> pd.DataFrame:
+    def construct_beds(self) -> pd.DataFrame:
         """
         Construct BED-formatted DataFrame
         """
         info("Mapper - Form intervals for BED file")
         interval_boundaries = self.get_interval_boundaries()
 
-        bed_columns = ["contig", "start", "end", "fraction", "read_count"]
+        bed_columns = ["contig", "start", "end", "read_count"]
 
-        to_df = []
-        for i in range(len(interval_boundaries)):
-            if i == 0:
-                pass
-            else:
-                to_df.append(
+        self.beds = []
+        for bam in self.bams:
+            intervals = []
+            for start, end in zip(interval_boundaries[:-1], interval_boundaries[1:]):
+                intervals.append(
                     {
                         bed_columns[0]: self.contig,
-                        bed_columns[1]: interval_boundaries[i - 1],
-                        bed_columns[2]: interval_boundaries[i],
+                        bed_columns[1]: start,
+                        bed_columns[2]: end,
                         bed_columns[3]: -1,
-                        bed_columns[4]: -1,
                     }
                 )
 
-        return pd.DataFrame.from_records(
-            to_df,
-            columns=bed_columns,
-        )
+            bed = pd.DataFrame.from_records(
+                intervals,
+                columns=bed_columns,
+            )
+
+            self.beds.append(bed)
 
     def get_interval_boundaries(self) -> list[int]:
         """
@@ -147,9 +144,10 @@ class Mapper:
 
         return interval_boundaries
 
-    def write_bed(self) -> None:
+    def write_beds(self) -> None:
         """
         Write output to BED file using filename specified
         """
         info("Mapper - Write BED contents to file")
-        self.bed.to_csv(self.bed_filename, sep="\t", index=False, header=False)
+        for bed, path in zip(self.beds, self.bed_filenames):
+            bed.to_csv(path, sep="\t", index=False, header=False)
