@@ -2,21 +2,21 @@ from intervaltree import Interval, IntervalTree
 from pathlib import Path
 from logging import info
 import pandas as pd
+import numpy as np
 import random
 
 
 class Intervals:
 
-    def __init__(self, files: str) -> None:
+    def __init__(self, bed_dir: str, bed_files: list[str], bed_count: int) -> None:
         """
         Class constructor: read, validate BED and populate IntervalTree
         """
         info(f"Intervals - Initialize Intervals")
-        self.files = files
+        self.handle_bed_files(bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count)
 
         # Read and validate BED files
         self.get_beds()
-        self.validate()
 
         # Get contig, start, end and various statistics from BEDs
         self.get_stats()
@@ -25,23 +25,39 @@ class Intervals:
 
         # Consolidate BEDs into IntervalTree
         self.populate_tree(query="mean")
+        self.validate()
 
-        self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
-        self.fractions = [
-            bed["read_count"] / sum(bed["read_count"]) for bed in self.beds
-        ]
+        # self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
+        # self.fractions = [
+        #     bed["read_count"] / sum(bed["read_count"]) for bed in self.beds
+        # ]
 
         info(f"Intervals - Complete initialize Intervals")
 
+    def handle_bed_files(
+        self, bed_dir: str, bed_files: list[str], bed_count: int
+    ) -> None:
+        """
+        Decide which BED files to read in based on provided file list or count
+        """
+        info("Intervals - Handle BED files")
+
+        if bed_files:
+            self.bed_files = bed_files
+        elif bed_count:
+            self.bed_files = np.random.choice(
+                a=list(Path(bed_dir).glob("*.bed")), size=bed_count, replace=False
+            )
+
     def __len__(self):
-        return len(self.beds)
+        return len(self.tree)
 
     def get_beds(self):
         """
         Read all input files as DataFrames
         """
         info("Intervals - Read in BED file(s)")
-        self.beds = [self.read_bed(path=file) for file in self.files]
+        self.beds = [self.read_bed(path=file) for file in self.bed_files]
 
     def get_contig(self):
         """
@@ -57,7 +73,7 @@ class Intervals:
         info(f"Intervals - Calculate collective statistics for BED files")
 
         values = pd.DataFrame()
-        for name, bed in zip(self.files, self.beds):
+        for name, bed in zip(self.bed_files, self.beds):
             values[Path(name).stem] = bed["read_count"]
 
         percentiles = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
@@ -95,7 +111,7 @@ class Intervals:
         match query:
             case "mean":
                 query_index = list(self.stats.columns).index(query)
-                values = self.stats[query_index]
+                values = self.stats.iloc[:, query_index]
             case "random":
                 random.seed(42)
                 values = [
