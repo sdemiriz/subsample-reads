@@ -1,5 +1,6 @@
 from subsample_reads.Intervals import Intervals
 from logging import info, warning
+from pathlib import Path
 import numpy as np
 import pysam, os
 
@@ -10,69 +11,69 @@ class Loader:
         """
         Constructor
         """
-        info("Loader - Initialize Loader")
+        info(f"Loader - Initialize Loader for {file}")
 
         self.file = file
         self.template = template
-        self.bam = self.load_bam()
+        self.load_bam()
 
-        info("Loader - Complete Loader")
+        info(f"Loader - Complete initialize Loader for {file}")
 
-    def load_bam(self) -> pysam.AlignmentFile:
+    def load_bam(self) -> None:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
-        info("Loader - Load BAM file")
-
         if self.template:
-
             info("Loader - Template file supplied: load BAM in write mode")
-            bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
+            self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
             info("Loader - Template file not supplied: load BAM in read mode")
-            bam = pysam.AlignmentFile(self.file, mode="rb")
+            self.bam = pysam.AlignmentFile(self.file, mode="rb")
 
-        info("Loader - Complete load BAM file")
-        return bam
+    def get_intervals(self, bed_dir: str, bed_files: list[str], bed_count: int) -> None:
+        """ """
+        info("Loader - Set up Intervals from provided BED files")
+        self.intervals = Intervals(
+            bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count
+        )
+
+    def get_empty_buckets(self) -> None:
+        """ """
+        info("Loader - Set up an empty bucket per interval")
+        self.buckets = [[] for i in range(len(self.intervals))]
 
     def sample(
         self,
-        intervals: str,
+        bed_dir: str,
+        bed_files: list[str],
+        bed_count: str,
         initial_seed: int,
         out_bam: str,
     ) -> None:
         """
         Sample BAM file according to interval data provided
         """
-
         info(f"Loader - Begin sampling")
 
         # Get interval info
-        self.bed = Intervals(file=intervals)
-        start, end = self.bed.get_limits()
-        sample_read_count = sum(self.bed.bed["read_count"])
-        info(f"Loader - Full region {start}-{end}")
+        self.get_intervals(bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count)
 
         # Get multiple seeds for per-bucket randomness
-        self.seeds = self.get_interval_seeds(initial_seed=initial_seed)
+        self.get_interval_seeds(initial_seed=initial_seed)
 
         # Get empty read buckets for each interval
-        self.buckets = [[] for i in range(len(self.bed.tree))]
-
-        info(f"Loader - Sort reads into buckets")
+        self.get_empty_buckets()
 
         # For all mapped reads
-        mapped_read_count = 0
-        for r in self.get_mapped_reads(start=start, end=end):
-
-            # Keep a tally of kept reads
-            mapped_read_count += 1
+        for r in self.get_mapped_reads(
+            start=self.intervals.start, end=self.intervals.end
+        ):
 
             # Keep a tally of buckets a read can fall into
             candidate_buckets = []
-            previous_has_overlap = False
-            for i, interval in enumerate(self.bed.tree):
+            prior_has_overlap = False
+            for i, interval in enumerate(self.intervals.tree):
 
                 has_overlap = self.overlap(
                     (r.reference_start, r.reference_end), (interval.begin, interval.end)
@@ -80,10 +81,10 @@ class Loader:
 
                 # Reads should overlap a number of sequential intervals
                 if has_overlap:
-                    previous_has_overlap = True
+                    prior_has_overlap = True
                     candidate_buckets.append(i)
                 # If no more overlapping intervals in sequence, no need to check further
-                elif previous_has_overlap:
+                elif prior_has_overlap:
                     break
 
             # Randomly select one bucket to deposit the read
@@ -91,18 +92,15 @@ class Loader:
             b = np.random.choice(a=candidate_buckets)
             self.buckets[b].append(r)
 
-        info(f"Loader - Complete sort reads into buckets")
-
         # After all reads have been sorted into buckets
         self.reads = []
-        for bucket, interval, seed in zip(self.buckets, self.bed.tree, self.seeds):
+        for bucket, interval, seed in zip(
+            self.buckets, self.intervals.tree, self.seeds
+        ):
             np.random.seed(seed=seed)
-
-            size = round(interval.data * sample_read_count)
-            size = min(len(bucket), size)
-
-            bucket = np.random.choice(a=bucket, size=size, replace=False)
-            self.reads.extend(bucket)
+            self.reads.extend(
+                np.random.choice(a=bucket, size=int(interval.data), replace=False)
+            )
 
         # Write kept reads
         self.write_reads(filename=out_bam)
@@ -111,19 +109,22 @@ class Loader:
         """
         Yield all mapped reads within limits of BED file
         """
+        info("Loader - Fetch mapped reads from supplied region")
+
         for r in self.bam.fetch(
-            contig=self.normalize_contig(self.bed.contig), start=start, end=end
+            contig=self.normalize_contig(self.intervals.contig), start=start, end=end
         ):
             if r.is_mapped:
                 yield r
 
-    def get_interval_seeds(self, initial_seed: int):
+    def get_interval_seeds(self, initial_seed: int) -> None:
         """
         Generate a seed per interval provided
         """
-        np.random.seed(initial_seed)
         info(f"Loader - Generate random seeds")
-        return np.random.randint(low=0, high=1_000_000, size=len(self.bed.tree))
+
+        np.random.seed(seed=initial_seed)
+        self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
 
     @staticmethod
     def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
@@ -137,8 +138,8 @@ class Loader:
         Handle both chrN and N contig names (other formats not supported)
         """
         info(f"Loader - Normalize contig name {contig}")
-        contig = str(contig)
 
+        contig = str(contig)
         if contig in self.bam.references:
             return contig
 
@@ -161,6 +162,7 @@ class Loader:
         Sort and index for file for random access in following steps
         """
         info(f"Loader - Write reads to file")
+
         out_bam = Loader(file=filename, template=self.bam)
 
         for r in self.reads:
@@ -179,8 +181,6 @@ class Loader:
         pysam.sort(filename, "-o", temp_file)
         os.rename(src=temp_file, dst=filename)
         pysam.index(filename)
-
-        info(f"Loader - Compelte sort and index output BAM file")
 
     def close(self) -> None:
         """
