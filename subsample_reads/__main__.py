@@ -26,7 +26,7 @@ def subsample(args):
         sample_bam_paths=args.in_bams,
         map_bam_paths=args.map_bams,
         bed_dir=args.bed_dir,
-        bed_list=args.bed_list,
+        bed_files=args.bed_files,
         bed_count=args.bed_count,
         contig=args.contig,
         start=args.start,
