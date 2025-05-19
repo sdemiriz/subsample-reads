@@ -10,48 +10,34 @@ class Plotter:
 
     def __init__(
         self,
-        bam_files: list[str],
-        bed_dir: str,
-        bed_files: list[str],
-        bed_count: int,
-        out: str | None,
+        in_bam_path: Path,
+        map_bam_paths: list[Path],
+        out_bam_path: Path,
+        intervals: Intervals,
+        plt_path: Path,
     ) -> None:
         """
         Constructor for plotting utility
         """
-        info(f"Plotter - Initialize Plotter with {bam_files=}, {bed_files=}, {out=}")
+        info(f"Plotter - Initialize Plotter")
 
-        self.intervals = Intervals(
-            bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count
-        )
+        self.intervals = intervals
         self.boundaries = set(
             list(self.intervals.beds[0]["start"]) + list(self.intervals.beds[0]["end"])
         )
 
-        self.bam_files = bam_files
-        self.out = out
+        self.in_bam_path = in_bam_path
+        self.map_bam_paths = map_bam_paths
+        self.out_bam_path = out_bam_path
+
+        self.all_bam_paths = (
+            [self.in_bam_path] + self.map_bam_paths + [self.out_bam_path]
+        )
+
+        self.plt_path = plt_path
         self.plot()
 
         info("Plotter - Complete Plotter")
-
-    def get_pileups(self) -> list:
-        """
-        Pileup BAMs for the defined region
-        """
-        info("Plotter - Pileup BAMs")
-
-        bams = [Loader(file=bam) for bam in self.bam_files]
-        pileups = [
-            bam.bam.pileup(
-                contig=bam.normalize_contig(self.intervals.contig),
-                start=self.intervals.start,
-                end=self.intervals.end,
-            )
-            for bam in bams
-        ]
-
-        info("Plotter - Complete pileup BAMs")
-        return pileups
 
     def plot(self) -> None:
         """
@@ -63,7 +49,7 @@ class Plotter:
         pileups = self.get_pileups()
 
         info("Plotter - Iterate pileups")
-        for p, b in zip(pileups, self.bam_files):
+        for p, b in zip(pileups, self.all_bam_paths):
 
             pileup = pd.DataFrame(
                 [(a.reference_pos, a.nsegments) for a in p], columns=["coord", "depth"]
@@ -72,7 +58,7 @@ class Plotter:
             ax.plot(
                 pileup["coord"],
                 pileup["depth"],
-                label=Path(b).stem,
+                label=b.stem,
                 alpha=0.5,
             )
         info("Plotter - Complete iterate pileups")
@@ -113,4 +99,23 @@ class Plotter:
         info("Plotter - Complete plotting")
 
         info("Plotter - Save plot")
-        plt.savefig(self.out)
+        plt.savefig(self.plt_path)
+
+    def get_pileups(self) -> list:
+        """
+        Pileup BAMs for the defined region
+        """
+        info("Plotter - Pileup BAMs")
+
+        bams = [Loader(path=p) for p in self.all_bam_paths]
+        pileups = [
+            bam.bam.pileup(
+                contig=bam.normalize_contig(self.intervals.contig),
+                start=self.intervals.start,
+                end=self.intervals.end,
+            )
+            for bam in bams
+        ]
+
+        info("Plotter - Complete pileup BAMs")
+        return pileups
