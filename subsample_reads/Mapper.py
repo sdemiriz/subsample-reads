@@ -2,7 +2,6 @@ from subsample_reads.Loader import Loader
 from logging import info
 from pathlib import Path
 import pandas as pd
-import pysam
 
 
 class Mapper:
@@ -12,47 +11,39 @@ class Mapper:
 
     def __init__(
         self,
-        bam_paths: list[str],
+        bam_paths: list[Path],
         contig: str,
-        start: str,
-        end: str,
-        interval_length: str | None,
-        interval_count: str | None,
-        bed_dir: str | None,
+        start: int,
+        end: int,
+        interval_length: int | None,
+        interval_count: None | int,
+        bed_paths: list[Path],
     ) -> None:
         """
         Constructor for class
         """
         info("Mapper - Initialize Mapper")
 
+        # Receive BAM and BED paths
         self.bam_paths = bam_paths
-        self.bed_dir = bed_dir
-        self.contig = str(contig)
-        self.start = int(start)
-        self.end = int(end)
+        self.bed_paths = bed_paths
 
-        self.make_bed_dir()
-        self.make_bed_filenames()
-        self.handle_intervals(
-            interval_length=interval_length, interval_count=interval_count
-        )
+        # Receive mapping coordinates
+        self.contig = contig
+        self.start = start
+        self.end = end
+        self.interval_length = interval_length
+        self.interval_count = interval_count
+
+        # Process BAM files into BEDs
         self.load_bams()
         self.construct_beds()
         self.populate_read_counts()
 
-        info("Mapper - Write interval data to BED files")
+        # Write BEDs to file
         self.write_beds()
 
-    def populate_read_counts(self):
-        """
-        Fill read counts in all BED DataFrames
-        """
-        info(f"Mapper - Populate read counts in BED files")
-        for bed, bam in zip(self.beds, self.bams):
-            bed["read_count"] = [
-                bam.bam.count(contig=self.contig, start=row[1], end=row[2])
-                for row in bed.itertuples(index=False)
-            ]
+        info("Mapper - Complete Mapper")
 
     def load_bams(self) -> None:
         """
@@ -61,33 +52,6 @@ class Mapper:
         info(f"Mapper - Initialize Loaders for supplied BAM files")
         self.bams = [Loader(file=bam_path) for bam_path in self.bam_paths]
 
-    def handle_intervals(self, interval_length: int, interval_count: int) -> None:
-        """
-        Settle whether to use interval length or count when mapping
-        """
-        if interval_length:
-            self.interval_length = int(interval_length)
-            self.interval_count = None
-        elif interval_count:
-            self.interval_length = None
-            self.interval_count = int(interval_count)
-
-    def make_bed_filenames(self) -> None:
-        """
-        Generate output BED filenames from  BAM filenames
-        """
-        self.bed_filenames = [
-            self.bed_dir / Path(bam_path).with_suffix(".bed").name
-            for bam_path in self.bam_paths
-        ]
-
-    def make_bed_dir(self) -> None:
-        """
-        Make the target directory to place BED files into
-        """
-        self.bed_dir = Path(self.bed_dir)
-        self.bed_dir.mkdir(parents=True, exist_ok=True)
-
     def construct_beds(self) -> pd.DataFrame:
         """
         Construct BED-formatted DataFrame
@@ -95,26 +59,21 @@ class Mapper:
         info("Mapper - Form intervals for BED file")
         interval_boundaries = self.get_interval_boundaries()
 
-        bed_columns = ["contig", "start", "end", "read_count"]
-
+        # For all BAMs, create dataframes with start and end coordinates of each interval
         self.beds = []
         for bam in self.bams:
             intervals = []
             for start, end in zip(interval_boundaries[:-1], interval_boundaries[1:]):
                 intervals.append(
                     {
-                        bed_columns[0]: self.contig,
-                        bed_columns[1]: start,
-                        bed_columns[2]: end,
-                        bed_columns[3]: -1,
+                        "contig": self.contig,
+                        "start": start,
+                        "end": end,
+                        "read_count": -1,
                     }
                 )
 
-            bed = pd.DataFrame.from_records(
-                intervals,
-                columns=bed_columns,
-            )
-
+            bed = pd.DataFrame.from_records(intervals)
             self.beds.append(bed)
 
     def get_interval_boundaries(self) -> list[int]:
@@ -124,7 +83,7 @@ class Mapper:
         region_length = self.end - self.start
 
         if self.interval_length:
-            info("Mapper - Using interval size to subdivide region")
+            info("Mapper - Using interval length to subdivide region")
 
             interval_boundaries = [
                 i + self.start for i in range(0, region_length, self.interval_length)
@@ -144,10 +103,21 @@ class Mapper:
 
         return interval_boundaries
 
+    def populate_read_counts(self):
+        """
+        Fill read counts in all BED DataFrames
+        """
+        info(f"Mapper - Populate read counts in BED files")
+        for bed, bam in zip(self.beds, self.bams):
+            bed["read_count"] = [
+                bam.bam.count(contig=self.contig, start=row[1], end=row[2])
+                for row in bed.itertuples(index=False)
+            ]
+
     def write_beds(self) -> None:
         """
         Write output to BED file using filename specified
         """
         info("Mapper - Write BED contents to file")
-        for bed, path in zip(self.beds, self.bed_filenames):
+        for bed, path in zip(self.beds, self.bed_paths):
             bed.to_csv(path, sep="\t", index=False, header=False)
