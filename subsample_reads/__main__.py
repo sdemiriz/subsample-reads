@@ -3,6 +3,7 @@
 from subsample_reads.Plotter import Plotter
 from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
+from subsample_reads.Subsampler import Subsampler
 from logging import getLogger, basicConfig, info, DEBUG
 import argparse
 
@@ -17,21 +18,24 @@ basicConfig(
 )
 
 
-def sample_mode(args):
+def subsample(args):
     """
     Sample provided BAM file based on regions in BED file
     """
-    in_bam = Loader(file=args.in_bam)
-
-    in_bam.sample(
+    Subsampler(
+        sample_bam_paths=args.in_bams,
+        map_bam_paths=args.map_bams,
         bed_dir=args.bed_dir,
-        bed_files=args.bed_files,
+        bed_list=args.bed_list,
         bed_count=args.bed_count,
-        initial_seed=args.seed,
-        out_bam=args.out_bam,
+        contig=args.contig,
+        start=args.start,
+        end=args.end,
+        interval_length=args.interval_length,
+        interval_count=args.interval_count,
+        seed=args.seed,
+        out_dir=args.out_dir,
     )
-
-    in_bam.close()
 
 
 if __name__ == "__main__":
@@ -49,7 +53,14 @@ if __name__ == "__main__":
         "--in-bams",
         nargs="+",
         required=True,
-        help="One or more BAM files to sample read counts from. Separate BED files produced for each BAM file, using the same filename with a .bed extenstion.",
+        help="One or more BAM files to sample read counts from.",
+    )
+    parser.add_argument(
+        "-m",
+        "--map-bams",
+        nargs="+",
+        required=True,
+        help="One or more BAM files to sample read counts from.",
     )
     parser.add_argument(
         "-c",
@@ -84,18 +95,6 @@ if __name__ == "__main__":
         default=None,
         help="Exclusive with --interval-length. Number of intervals to generate within supplied start-end region.",
     )
-    parser.add_argument(
-        "-d",
-        "--bed-dir",
-        default="bed/",
-        help="Top level directory name for the output BED files to be placed into, created if does not exist. A subdirectory with the name format contig:start-end will be created based on values supplied to accomodate multiple region selections.",
-    )
-    parser.add_argument(
-        "-s",
-        "--seed",
-        default=42,
-        help="Integer seed to direct the random subsampling process.",
-    )
 
     # BED file usage handling group
     bed_files = parser.add_mutually_exclusive_group(required=True)
@@ -111,18 +110,24 @@ if __name__ == "__main__":
         default=1,
         help="Exclusive with --bed-files. Specify how many BED files to reference when generating sampling distribution. Has to be less than or equal to number of BED file(s) present.",
     )
-    parser.add_argument(
-        "-o",
-        "--out-bam",
-        default="out.bam",
-        help="BAM file to write subsampled reads to.",
-    )
 
     parser.add_argument(
-        "-p",
-        "--plot-dir",
-        default="img/",
-        help="Directory path to write resulting plot to.",
+        "-s",
+        "--seed",
+        default=42,
+        help="Integer seed to direct the random subsampling process.",
+    )
+    parser.add_argument(
+        "-d",
+        "--bed-dir",
+        default="bed/",
+        help="Top level directory name for the output BED files to be placed into, created if does not exist. A subdirectory with the name format contig:start-end will be created based on values supplied to accomodate multiple region selections.",
+    )
+    parser.add_argument(
+        "-o",
+        "--out-dir",
+        default="out/",
+        help="Directory to write BAM files with subsampled reads and plots.",
     )
 
     args = parser.parse_args()
