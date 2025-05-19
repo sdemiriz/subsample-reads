@@ -102,10 +102,11 @@ if __name__ == "__main__":
         "-b",
         "--bed-files",
         nargs="+",
+        default=None,
         help="Exclusive with --bed-count. Specify the exact BED files to use to generate sampling distribution from.",
     )
     bed_files.add_argument(
-        "-n",
+        "-z",
         "--bed-count",
         default=1,
         help="Exclusive with --bed-files. Specify how many BED files to reference when generating sampling distribution. Has to be less than or equal to number of BED file(s) present.",
