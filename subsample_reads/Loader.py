@@ -7,17 +7,17 @@ import pysam, os
 
 class Loader:
 
-    def __init__(self, file: str, template: pysam.AlignmentFile = None) -> None:
+    def __init__(self, path: str, template: pysam.AlignmentFile = None) -> None:
         """
         Constructor
         """
-        info(f"Loader - Initialize Loader for {file}")
+        info(f"Loader - Initialize Loader for {path}")
 
-        self.file = file
+        self.path = path
         self.template = template
         self.load_bam()
 
-        info(f"Loader - Complete initialize Loader for {file}")
+        info(f"Loader - Complete initialize Loader for {path}")
 
     def load_bam(self) -> None:
         """
@@ -25,30 +25,18 @@ class Loader:
         """
         if self.template:
             info("Loader - Template file supplied: load BAM in write mode")
-            self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
+            self.bam = pysam.AlignmentFile(
+                str(self.path), mode="wb", template=self.template
+            )
 
         else:
             info("Loader - Template file not supplied: load BAM in read mode")
-            self.bam = pysam.AlignmentFile(self.file, mode="rb")
-
-    def get_intervals(self, bed_dir: str, bed_files: list[str], bed_count: int) -> None:
-        """ """
-        info("Loader - Set up Intervals from provided BED files")
-        self.intervals = Intervals(
-            bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count
-        )
-
-    def get_empty_buckets(self) -> None:
-        """ """
-        info("Loader - Set up an empty bucket per interval")
-        self.buckets = [[] for i in range(len(self.intervals))]
+            self.bam = pysam.AlignmentFile(str(self.path), mode="rb")
 
     def sample(
         self,
-        bed_dir: str,
-        bed_files: list[str],
-        bed_count: str,
-        initial_seed: int,
+        intervals: Intervals,
+        main_seed: int,
         out_bam: str,
     ) -> None:
         """
@@ -57,10 +45,10 @@ class Loader:
         info(f"Loader - Begin sampling")
 
         # Get interval info
-        self.get_intervals(bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count)
+        self.intervals = intervals
 
         # Get multiple seeds for per-bucket randomness
-        self.get_interval_seeds(initial_seed=initial_seed)
+        self.get_interval_seeds(main_seed=main_seed)
 
         # Get empty read buckets for each interval
         self.get_empty_buckets()
@@ -88,7 +76,7 @@ class Loader:
                     break
 
             # Randomly select one bucket to deposit the read
-            np.random.seed(seed=initial_seed)
+            np.random.seed(seed=main_seed)
             b = np.random.choice(a=candidate_buckets)
             self.buckets[b].append(r)
 
@@ -103,7 +91,21 @@ class Loader:
             )
 
         # Write kept reads
-        self.write_reads(filename=out_bam)
+        self.write_reads(path=out_bam)
+
+    def get_interval_seeds(self, main_seed: int) -> None:
+        """
+        Generate a seed per interval provided
+        """
+        info(f"Loader - Generate random seeds")
+
+        np.random.seed(seed=main_seed)
+        self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
+
+    def get_empty_buckets(self) -> None:
+        """ """
+        info("Loader - Set up an empty bucket per interval")
+        self.buckets = [[] for i in range(len(self.intervals))]
 
     def get_mapped_reads(self, start: int, end: int):
         """
@@ -116,15 +118,6 @@ class Loader:
         ):
             if r.is_mapped:
                 yield r
-
-    def get_interval_seeds(self, initial_seed: int) -> None:
-        """
-        Generate a seed per interval provided
-        """
-        info(f"Loader - Generate random seeds")
-
-        np.random.seed(seed=initial_seed)
-        self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
 
     @staticmethod
     def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
@@ -156,31 +149,31 @@ class Loader:
 
         return contig
 
-    def write_reads(self, filename: str) -> None:
+    def write_reads(self, path: Path) -> None:
         """
         Open the output BAM file and write all kept reads
         Sort and index for file for random access in following steps
         """
         info(f"Loader - Write reads to file")
 
-        out_bam = Loader(file=filename, template=self.bam)
+        out_bam = Loader(path=path, template=self.bam)
 
         for r in self.reads:
             out_bam.bam.write(read=r)
 
         out_bam.close()
-        self.sort_and_index(filename=filename)
+        self.sort_and_index(path=path)
 
-    def sort_and_index(self, filename: str) -> None:
+    def sort_and_index(self, path: Path) -> None:
         """
         Sort, then index file
         """
         info(f"Loader - Sort and index output BAM file")
 
         temp_file = "temp.bam"
-        pysam.sort(filename, "-o", temp_file)
-        os.rename(src=temp_file, dst=filename)
-        pysam.index(filename)
+        pysam.sort(path, "-o", temp_file)
+        os.rename(src=temp_file, dst=path)
+        pysam.index(path)
 
     def close(self) -> None:
         """
