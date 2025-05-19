@@ -1,12 +1,10 @@
+from subsample_reads.Intervals import Intervals
+from subsample_reads.Plotter import Plotter
 from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
-from subsample_reads.Plotter import Plotter
-from subsample_reads.Intervals import Intervals
 
-import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
-import pysam
 
 
 class Subsampler:
@@ -16,7 +14,7 @@ class Subsampler:
         sample_bam_paths: list[str],
         map_bam_paths: list[str],
         bed_dir: str,
-        bed_list: list[str] | None,
+        bed_files: list[str] | None,
         bed_count: None | int,
         contig: str,
         start: int,
@@ -26,6 +24,8 @@ class Subsampler:
         seed: int,
         out_dir: str,
     ):
+        # Set main seed for later sampling
+        self.main_seed = int(seed)
 
         # Pathify supplied directories
         self.bed_dir = Path(bed_dir)
@@ -38,11 +38,8 @@ class Subsampler:
         ]
 
         self.map_bam_paths = [Path(p) for p in map_bam_paths]
-        self.bed_paths = [self.bam_to_bed(bam_path=p) for p in self.in_bam_paths]
+        self.bed_paths = self.handle_beds(bed_files=bed_files, bed_count=bed_count)
         self.plt_paths = [self.bam_to_plt(bam_path=p) for p in self.in_bam_paths]
-
-        # Set main seed for later sampling
-        self.main_seed = int(seed)
 
         # Get interval components
         self.contig = str(contig)
@@ -63,19 +60,21 @@ class Subsampler:
             bed_paths=self.bed_paths,
         )
 
+        self.intervals = Intervals(bed_paths=self.bed_paths, main_seed=self.main_seed)
+
         # Run sampling for each input BAM file
         for in_bam_path, out_bam_path, plt_path in zip(
             self.in_bam_paths, self.out_bam_paths, self.plt_paths
         ):
             loader = Loader(path=in_bam_path)
             loader.sample(
-                bed_paths=self.bed_paths, main_seed=self.main_seed, out_bam=out_bam_path
+                intervals=self.intervals, main_seed=self.main_seed, out_bam=out_bam_path
             )
             loader.close()
 
             Plotter(
                 bam_paths=[in_bam_path] + [out_bam_path],
-                bed_paths=self.bed_paths,
+                intervals=self.intervals,
                 out_path=plt_path,
             )
 
@@ -101,3 +100,17 @@ class Subsampler:
         elif interval_count:
             self.interval_length = None
             self.interval_count = int(interval_count)
+
+    def handle_beds(self, bed_files: list[str], bed_count: int):
+        if bed_files:
+            beds = [self.bed_dir / bed_file for bed_file in bed_files]
+        elif bed_count:
+            np.random.seed(self.main_seed)
+            beds = [
+                self.bed_dir
+                / np.random.choice(
+                    a=list(self.bed_dir.glob("*.bed")), count=bed_count, replace=False
+                )
+            ]
+
+        return beds
