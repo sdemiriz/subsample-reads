@@ -39,6 +39,7 @@ class Mapper:
         self.load_bams()
         self.construct_beds()
         self.populate_read_counts()
+        self.populate_fractions()
 
         info("Mapper - Write interval data to BED files")
         self.write_beds()
@@ -51,6 +52,18 @@ class Mapper:
         for bed, bam in zip(self.beds, self.bams):
             bed["read_count"] = [
                 bam.bam.count(contig=self.contig, start=row[1], end=row[2])
+                for row in bed.itertuples(index=False)
+            ]
+
+    def populate_fractions(self):
+        """
+        Fill read counts in all BED DataFrames
+        """
+        info(f"Mapper - Populate read counts in BED files")
+        for bed, bam in zip(self.beds, self.bams):
+            bed["read_count"] = [
+                bam.bam.count(contig=self.contig, start=row[1], end=row[2])
+                / sum(bed["read_count"])
                 for row in bed.itertuples(index=False)
             ]
 
@@ -95,7 +108,7 @@ class Mapper:
         info("Mapper - Form intervals for BED file")
         interval_boundaries = self.get_interval_boundaries()
 
-        bed_columns = ["contig", "start", "end", "read_count"]
+        bed_columns = ["contig", "start", "end", "read_count", "fraction"]
 
         self.beds = []
         for bam in self.bams:
@@ -107,6 +120,7 @@ class Mapper:
                         bed_columns[1]: start,
                         bed_columns[2]: end,
                         bed_columns[3]: -1,
+                        bed_columns[4]: -1,
                     }
                 )
 
