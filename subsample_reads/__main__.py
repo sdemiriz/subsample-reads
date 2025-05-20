@@ -22,7 +22,7 @@ def mapper_mode(args):
     Chart a distribution of reads from given BAM file
     """
     Mapper(
-        bam_paths=args.in_bams,
+        bam_paths=args.in_bam,
         contig=args.contig,
         start=args.start,
         end=args.end,
@@ -40,9 +40,8 @@ def sample_mode(args):
 
     in_bam.sample(
         bed_dir=args.bed_dir,
-        bed_files=args.bed_files,
-        bed_count=args.bed_count,
-        initial_seed=args.seed,
+        bed_file=args.bed,
+        main_seed=args.seed,
         out_bam=args.out_bam,
     )
 
@@ -54,11 +53,11 @@ def plotter_mode(args):
     Chart a distribution of reads from given BAM file
     """
     Plotter(
-        bam_files=args.in_bam,
+        in_bam=args.in_bam,
+        out_bam=args.out_bam,
         bed_dir=args.bed_dir,
-        bed_files=args.bed_files,
-        bed_count=args.bed_count,
-        out=args.output,
+        bed_file=args.bed,
+        out_plt=args.out_plot,
     )
 
 
@@ -85,49 +84,43 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     mapper.add_argument(
-        "-i",
-        "--in-bams",
+        "--in-bam",
         nargs="+",
         required=True,
         help="One or more BAM files to sample read counts from. Separate BED files produced for each BAM file, using the same filename with a .bed extenstion.",
     )
     mapper.add_argument(
-        "-c",
         "--contig",
         required=True,
         help="A valid contig name present in all provided BAM file(s).",
     )
     mapper.add_argument(
-        "-s",
         "--start",
         required=True,
         help="The start coordinate of the region to map on the supplied contig.",
     )
     mapper.add_argument(
-        "-e",
         "--end",
         required=True,
         help="The end coordinate of the region to map on the supplied contig.",
-    )
-
-    intervals = mapper.add_mutually_exclusive_group(required=True)
-    intervals.add_argument(
-        "-l",
-        "--interval-length",
-        default=None,
-        help="Exclusive with --interval-count. Lengths of intervals to generate within supplied start-end region. Final interval may end up shorter due to start-end region length.",
-    )
-    intervals.add_argument(
-        "-n",
-        "--interval-count",
-        default=None,
-        help="Exclusive with --interval-length. Number of intervals to generate within supplied start-end region.",
     )
     mapper.add_argument(
         "-d",
         "--bed-dir",
         default="bed/",
         help="Top level directory name for the output BED files to be placed into, created if does not exist. A subdirectory with the name format contig:start-end will be created based on values supplied to accomodate multiple region selections.",
+    )
+
+    intervals = mapper.add_mutually_exclusive_group(required=True)
+    intervals.add_argument(
+        "--interval-length",
+        default=None,
+        help="Exclusive with --interval-count. Lengths of intervals to generate within supplied start-end region. Final interval may end up shorter due to start-end region length.",
+    )
+    intervals.add_argument(
+        "--interval-count",
+        default=None,
+        help="Exclusive with --interval-length. Number of intervals to generate within supplied start-end region.",
     )
     mapper.set_defaults(func=mapper_mode)
 
@@ -138,40 +131,29 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sample.add_argument(
-        "-i",
         "--in-bam",
         required=True,
         help="Target BAM file to subset based on the distributions in the selected BED file(s).",
     )
-    sample.add_argument(
-        "-d",
+
+    bed_selection = sample.add_mutually_exclusive_group()
+    bed_selection.add_argument(
         "--bed-dir",
         default="bed/",
         help="Top level directory to fetch BED files from. The subdirectory to read from with the name format contig:start-end are determined automatically based on the selected BED file(s).",
     )
+    bed_selection.add_argument(
+        "--bed",
+        default=None,
+        help="Specify one BED file to sample from.",
+    )
+
     sample.add_argument(
-        "-s",
         "--seed",
         default=42,
         help="Integer seed to direct the random subsampling process.",
     )
-
-    bed_files = sample.add_mutually_exclusive_group(required=True)
-    bed_files.add_argument(
-        "-b",
-        "--bed-files",
-        nargs="+",
-        help="Exclusive with --bed-count. Specify the exact BED files to use to generate sampling distribution from.",
-    )
-    bed_files.add_argument(
-        "-n",
-        "--bed-count",
-        default=1,
-        help="Exclusive with --bed-files. Specify how many BED files to reference when generating sampling distribution. Has to be less than or equal to number of BED file(s) present.",
-    )
-
     sample.add_argument(
-        "-o",
         "--out-bam",
         default="out.bam",
         help="BAM file to write subsampled reads to.",
@@ -185,35 +167,30 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     plotter.add_argument(
-        "-i",
         "--in-bam",
-        nargs="+",
         required=True,
         help="One or more BAM files to plot depth for based on provided BED file(s).",
     )
     plotter.add_argument(
-        "-d",
-        "--bed-dir",
-        default="bed/",
-        help="Top level directory to fetch BED files from. The subdirectory to read from with the name format contig:start-end are determined automatically based on the selected BED file(s).",
+        "--out-bam",
+        required=True,
+        help="One or more BAM files to plot depth for based on provided BED file(s).",
     )
 
-    bed_files = plotter.add_mutually_exclusive_group(required=True)
-    bed_files.add_argument(
-        "-b",
-        "--bed-files",
-        nargs="+",
-        help="Exclusive with --bed-count. Specify the exact BED files to use to generate sampling distribution from.",
+    bed_selection = plotter.add_mutually_exclusive_group()
+    bed_selection.add_argument(
+        "--bed-dir",
+        default="bed/",
+        help="Top level directory to fetch a BED file from. The subdirectory to read from with the name format contig:start-end are determined automatically based on the selected BED file(s).",
     )
-    bed_files.add_argument(
-        "-n",
-        "--bed-count",
-        default=1,
-        help="Exclusive with --bed-files. Specify how many BED files to reference when generating sampling distribution.",
+    bed_selection.add_argument(
+        "--bed",
+        default=None,
+        help="TODO",
     )
 
     plotter.add_argument(
-        "-o", "--output", default="out.png", help="Path to write resulting plot to."
+        "--out-plot", default="out.png", help="Path to write resulting plot to."
     )
     plotter.set_defaults(func=plotter_mode)
 
