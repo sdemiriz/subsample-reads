@@ -31,12 +31,10 @@ class Loader:
             info("Loader - Template file not supplied: load BAM in read mode")
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
 
-    def get_intervals(self, bed_dir: str, bed_files: list[str], bed_count: int) -> None:
+    def get_intervals(self, bed_dir: str, bed_file: str) -> None:
         """ """
         info("Loader - Set up Intervals from provided BED files")
-        self.intervals = Intervals(
-            bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count
-        )
+        self.intervals = Intervals(bed_dir=bed_dir, bed_file=bed_file)
 
     def get_empty_buckets(self) -> None:
         """ """
@@ -46,21 +44,21 @@ class Loader:
     def sample(
         self,
         bed_dir: str,
-        bed_files: list[str],
-        bed_count: str,
-        initial_seed: int,
+        bed_file: str,
+        main_seed: int,
         out_bam: str,
     ) -> None:
         """
         Sample BAM file according to interval data provided
         """
         info(f"Loader - Begin sampling")
+        self.main_seed = int(main_seed)
 
         # Get interval info
-        self.get_intervals(bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count)
+        self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
 
         # Get multiple seeds for per-bucket randomness
-        self.get_interval_seeds(initial_seed=initial_seed)
+        self.get_interval_seeds(main_seed=self.main_seed)
 
         # Get empty read buckets for each interval
         self.get_empty_buckets()
@@ -88,7 +86,7 @@ class Loader:
                     break
 
             # Randomly select one bucket to deposit the read
-            np.random.seed(seed=initial_seed)
+            np.random.seed(seed=self.main_seed)
             b = np.random.choice(a=candidate_buckets)
             self.buckets[b].append(r)
 
@@ -117,13 +115,13 @@ class Loader:
             if r.is_mapped:
                 yield r
 
-    def get_interval_seeds(self, initial_seed: int) -> None:
+    def get_interval_seeds(self, main_seed: int) -> None:
         """
         Generate a seed per interval provided
         """
         info(f"Loader - Generate random seeds")
 
-        np.random.seed(seed=initial_seed)
+        np.random.seed(seed=main_seed)
         self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
 
     @staticmethod
