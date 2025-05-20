@@ -10,26 +10,25 @@ class Plotter:
 
     def __init__(
         self,
-        bam_files: list[str],
+        in_bam: str,
+        out_bam: str,
         bed_dir: str,
-        bed_files: list[str],
-        bed_count: int,
-        out: str | None,
+        bed_file: str,
+        out_plt: str | None,
     ) -> None:
         """
         Constructor for plotting utility
         """
-        info(f"Plotter - Initialize Plotter with {bam_files=}, {bed_files=}, {out=}")
+        info(f"Plotter - Initialize Plotter")
 
-        self.intervals = Intervals(
-            bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count
-        )
+        self.intervals = Intervals(bed_dir=bed_dir, bed_file=bed_file)
         self.boundaries = set(
-            list(self.intervals.beds[0]["start"]) + list(self.intervals.beds[0]["end"])
+            list(self.intervals.bed["start"]) + list(self.intervals.bed["end"])
         )
 
-        self.bam_files = bam_files
-        self.out = out
+        self.in_bam = in_bam
+        self.out_bam = out_bam
+        self.out_plt = out_plt
         self.plot()
 
         info("Plotter - Complete Plotter")
@@ -40,7 +39,7 @@ class Plotter:
         """
         info("Plotter - Pileup BAMs")
 
-        bams = [Loader(file=bam) for bam in self.bam_files]
+        bams = [Loader(file=self.in_bam), Loader(file=self.out_bam)]
         pileups = [
             bam.bam.pileup(
                 contig=bam.normalize_contig(self.intervals.contig),
@@ -63,7 +62,7 @@ class Plotter:
         pileups = self.get_pileups()
 
         info("Plotter - Iterate pileups")
-        for p, b in zip(pileups, self.bam_files):
+        for p, b in zip(pileups, [self.in_bam, self.out_bam]):
 
             pileup = pd.DataFrame(
                 [(a.reference_pos, a.nsegments) for a in p], columns=["coord", "depth"]
@@ -77,27 +76,14 @@ class Plotter:
             )
         info("Plotter - Complete iterate pileups")
 
-        ax.plot(
-            (self.intervals.stats["start"] + self.intervals.stats["end"]) / 2,
-            self.intervals.stats["mean"],
-            color="b",
-        )
-        ax.fill_between(
-            x=(self.intervals.stats["start"] + self.intervals.stats["end"]) / 2,
-            y1=self.intervals.stats["min"],
-            y2=self.intervals.stats["max"],
-            alpha=0.3,
-            color="b",
-        )
-
         for b in self.boundaries:
             ax.axvline(x=b, linestyle="--", linewidth=1.5, color="red", alpha=0.3)
 
-        for row in self.intervals.stats.iterrows():
+        for row in self.intervals.bed.iterrows():
             ax.text(
                 x=(row[1]["start"] + row[1]["end"]) / 2,
                 y=-10,
-                s=str(row[1]["mean"])[:5],
+                s=str(row[1]["read_count"])[:5],
                 ha="center",
                 size="x-small",
             )
@@ -113,4 +99,4 @@ class Plotter:
         info("Plotter - Complete plotting")
 
         info("Plotter - Save plot")
-        plt.savefig(self.out)
+        plt.savefig(self.out_plt)
