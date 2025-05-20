@@ -8,80 +8,53 @@ import random
 
 class Intervals:
 
-    def __init__(self, bed_dir: str, bed_files: list[str], bed_count: int) -> None:
+    def __init__(self, bed_dir: str, bed_file: str) -> None:
         """
         Class constructor: read, validate BED and populate IntervalTree
         """
         info(f"Intervals - Initialize Intervals")
-        self.handle_bed_files(bed_dir=bed_dir, bed_files=bed_files, bed_count=bed_count)
 
-        # Read and validate BED files
-        self.get_beds()
+        # Read BED file
+        self.handle_bed_files(bed_dir=bed_dir, bed_file=bed_file)
+        self.get_bed()
 
-        # Get contig, start, end and various statistics from BEDs
-        self.get_stats()
+        # Get contig, start, and end from BED
         self.get_contig()
         self.get_limits()
 
-        # Consolidate BEDs into IntervalTree
-        self.populate_tree(query="mean")
+        # Build IntervalTree from BED
+        self.populate_tree()
         self.validate()
-
-        # self.total_read_counts = [sum(bed["read_count"]) for bed in self.beds]
-        # self.fractions = [
-        #     bed["read_count"] / sum(bed["read_count"]) for bed in self.beds
-        # ]
 
         info(f"Intervals - Complete initialize Intervals")
 
-    def handle_bed_files(
-        self, bed_dir: str, bed_files: list[str], bed_count: int
-    ) -> None:
+    def handle_bed_files(self, bed_dir: str, bed_file: str) -> None:
         """
         Decide which BED files to read in based on provided file list or count
         """
         info("Intervals - Handle BED files")
 
-        if bed_files:
-            self.bed_files = bed_files
-        elif bed_count:
-            self.bed_files = np.random.choice(
-                a=list(Path(bed_dir).glob("*.bed")), size=bed_count, replace=False
-            )
+        if bed_file:
+            self.bed_file = bed_file
+        elif bed_dir:
+            self.bed_file = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))
 
     def __len__(self):
         return len(self.tree)
 
-    def get_beds(self):
+    def get_bed(self):
         """
         Read all input files as DataFrames
         """
         info("Intervals - Read in BED file(s)")
-        self.beds = [self.read_bed(path=file) for file in self.bed_files]
+        self.bed = self.read_bed(path=self.bed_file)
 
     def get_contig(self):
         """
         Gets contig from first BED file (assumes BED files have been validated)
         """
         info("Intervals - Set contig value")
-        self.contig = self.beds[0]["contig"][0]
-
-    def get_stats(self):
-        """
-        Calculate statistics from BED file read counts
-        """
-        info(f"Intervals - Calculate collective statistics for BED files")
-
-        values = pd.DataFrame()
-        for name, bed in zip(self.bed_files, self.beds):
-            values[Path(name).stem] = bed["read_count"]
-
-        percentiles = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
-        stats = values.transpose().describe(percentiles=percentiles).transpose()
-
-        self.stats = pd.concat(
-            [self.beds[0][["contig", "start", "end"]], stats, values], axis=1
-        )
+        self.contig = self.bed["contig"][0]
 
     def read_bed(self, path: str) -> list[pd.DataFrame]:
         """
@@ -102,28 +75,15 @@ class Intervals:
             },
         )
 
-    def populate_tree(self, query: str = "mean") -> None:
+    def populate_tree(self) -> None:
         """
         Populate IntervalTree using rows from BED file
         """
         info("Intervals - Populate interval tree using mean read_counts")
 
-        match query:
-            case "mean":
-                query_index = list(self.stats.columns).index(query)
-                values = self.stats.iloc[:, query_index]
-            case "random":
-                random.seed(42)
-                values = [
-                    random.uniform(i[0], i[1])
-                    for i in self.stats[["min", "max"]].itertuples(index=False)
-                ]
-            case _:
-                raise Exception("Invalid query value in Intervals.populate_tree()")
-
         tree = IntervalTree()
-        for row_bed, value in zip(self.beds[0].itertuples(index=False), values):
-            tree.add(Interval(begin=row_bed[1], end=row_bed[2], data=value))
+        for row in self.bed.itertuples(index=False):
+            tree.add(Interval(begin=row[1], end=row[2], data=row[3]))
 
         self.tree = IntervalTree(sorted(tree))
 
@@ -131,7 +91,7 @@ class Intervals:
         """
         Return start and end of region from the first BED file (assumes BED files have been validated)
         """
-        self.start, self.end = min(self.beds[0]["start"]), max(self.beds[0]["end"])
+        self.start, self.end = min(self.bed["start"]), max(self.bed["end"])
 
     def validate(self) -> None:
         """
@@ -141,26 +101,26 @@ class Intervals:
 
         contig = ""
         start, end = None, None
-        for bed in self.beds:
-            # Check for different contigs within BED files
-            assert (
-                len(pd.unique(bed["contig"])) == 1
-            ), f"Not all contig values in BED file identical"
 
-            # Check for different contigs between BED files
-            if contig:
-                assert contig == bed["contig"][0], "Contig differs from other contigs"
-                contig = bed["contig"][0]
+        # Check for different contigs within BED files
+        assert (
+            len(pd.unique(self.bed["contig"])) == 1
+        ), f"Not all contig values in BED file identical"
 
-            # Check all start and end cooridnates match between BED files
-            if start and end:
-                assert start == min(
-                    bed["start"]
-                ), "Start coordinate differs from other start coordinates"
-                assert end == max(
-                    bed["end"]
-                ), "End coordinate differs from other end coordinates"
-                start, end = min(bed["start"]), max(bed["end"])
+        # Check for different contigs between BED files
+        if contig:
+            assert contig == self.bed["contig"][0], "Contig differs from other contigs"
+            contig = self.bed["contig"][0]
+
+        # Check all start and end cooridnates match between BED files
+        if start and end:
+            assert start == min(
+                self.bed["start"]
+            ), "Start coordinate differs from other start coordinates"
+            assert end == max(
+                self.bed["end"]
+            ), "End coordinate differs from other end coordinates"
+            start, end = min(self.bed["start"]), max(self.bed["end"])
 
         # Check for interval overlaps
         before = self.tree.copy()
