@@ -54,10 +54,11 @@ def plotter_mode(args):
     """
     Plotter(
         in_bam=args.in_bam,
+        map_bam=args.map_bam,
         out_bam=args.out_bam,
         bed_dir=args.bed_dir,
         bed_file=args.bed,
-        out_plt=args.out_plot,
+        out_plt=args.out_plt,
     )
 
 
@@ -172,6 +173,11 @@ if __name__ == "__main__":
         help="One or more BAM files to plot depth for based on provided BED file(s).",
     )
     plotter.add_argument(
+        "--map-bam",
+        required=True,
+        help="One or more BAM files to plot depth for based on provided BED file(s).",
+    )
+    plotter.add_argument(
         "--out-bam",
         required=True,
         help="One or more BAM files to plot depth for based on provided BED file(s).",
@@ -190,7 +196,7 @@ if __name__ == "__main__":
     )
 
     plotter.add_argument(
-        "--out-plot", default="out.png", help="Path to write resulting plot to."
+        "--out-plt", default="out.png", help="Path to write resulting plot to."
     )
     plotter.set_defaults(func=plotter_mode)
 

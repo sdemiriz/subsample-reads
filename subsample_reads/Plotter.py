@@ -11,6 +11,7 @@ class Plotter:
     def __init__(
         self,
         in_bam: str,
+        map_bam: str,
         out_bam: str,
         bed_dir: str,
         bed_file: str,
@@ -27,6 +28,7 @@ class Plotter:
         )
 
         self.in_bam = in_bam
+        self.map_bam = map_bam
         self.out_bam = out_bam
         self.out_plt = out_plt
         self.plot()
@@ -39,7 +41,11 @@ class Plotter:
         """
         info("Plotter - Pileup BAMs")
 
-        bams = [Loader(file=self.in_bam), Loader(file=self.out_bam)]
+        bams = [
+            Loader(file=self.in_bam),
+            Loader(file=self.map_bam),
+            Loader(file=self.out_bam),
+        ]
         pileups = [
             bam.bam.pileup(
                 contig=bam.normalize_contig(self.intervals.contig),

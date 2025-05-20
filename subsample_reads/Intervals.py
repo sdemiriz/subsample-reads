@@ -66,12 +66,13 @@ class Intervals:
             path,
             sep="\t",
             header=None,
-            names=["contig", "start", "end", "read_count"],
+            names=["contig", "start", "end", "read_count", "fraction"],
             dtype={
                 "contig": str,
                 "start": int,
                 "end": int,
                 "read_count": int,
+                "fraction": float,
             },
         )
 
