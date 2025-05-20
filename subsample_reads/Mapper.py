@@ -17,7 +17,7 @@ class Mapper:
         start: str,
         end: str,
         interval_length: str | None,
-        interval_count: str | None,
+        interval_count: None | str,
         bed_dir: str | None,
     ) -> None:
         """
