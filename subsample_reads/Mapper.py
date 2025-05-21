@@ -152,7 +152,7 @@ class Mapper:
         """
         info(f"Mapper - Populate read counts in BED files")
         for bed, bam in zip(self.beds, self.bams):
-            bed["read_count"] = [
+            bed["fraction"] = [
                 bam.bam.count(contig=self.contig, start=row[1], end=row[2])
                 / sum(bed["read_count"])
                 for row in bed.itertuples(index=False)
