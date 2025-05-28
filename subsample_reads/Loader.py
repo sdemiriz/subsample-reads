@@ -53,10 +53,12 @@ class Loader:
         # Get empty read buckets for each interval
         self.get_empty_buckets()
 
-        # For all mapped reads
-        for r in self.get_mapped_reads(
+        mapped_reads = self.get_mapped_reads(
             start=self.intervals.start, end=self.intervals.end
-        ):
+        )
+
+        # For all mapped reads
+        for r in mapped_reads:
 
             # Keep a tally of buckets a read can fall into
             candidate_buckets = []
@@ -64,7 +66,8 @@ class Loader:
             for i, interval in enumerate(self.intervals.tree):
 
                 has_overlap = self.overlap(
-                    (r.reference_start, r.reference_end), (interval.begin, interval.end)
+                    read_coords=(r.reference_start, r.reference_end),
+                    int_coords=(interval.begin, interval.end),
                 )
 
                 # Reads should overlap a number of sequential intervals
@@ -85,10 +88,23 @@ class Loader:
         for bucket, interval, seed in zip(
             self.buckets, self.intervals.tree, self.seeds
         ):
-            np.random.seed(seed=seed)
-            self.reads.extend(
-                np.random.choice(a=bucket, size=int(interval.data), replace=False)
+
+            # Count reads that overhang from previous intervals
+            overhang_read_count = sum(
+                1
+                for prev_read in self.reads
+                if self.overlap(
+                    read_coords=(prev_read.reference_start, prev_read.reference_end),
+                    int_coords=(interval.begin, interval.end),
+                )
             )
+
+            # Calculate actual amount of reads to sample
+            count = int(interval.data) - overhang_read_count
+
+            # Do the sampling
+            np.random.seed(seed=seed)
+            self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
 
         # Write kept reads
         self.write_reads()
@@ -125,11 +141,12 @@ class Loader:
                 yield r
 
     @staticmethod
-    def overlap(pair_x: tuple[int, int], pair_y: tuple[int, int]) -> bool:
+    def overlap(read_coords: tuple[int, int], int_coords: tuple[int, int]) -> bool:
         """
-        Determine whether two provided 1D intervals overlap
+        Determine whether the read coordinates overlap the interval coordinates (start-end)
+        Read cannot hang over the start of the interval
         """
-        return max(pair_x[0], pair_y[0]) < min(pair_x[1], pair_y[1])
+        return max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
 
     def normalize_contig(self, contig) -> str:
         """
