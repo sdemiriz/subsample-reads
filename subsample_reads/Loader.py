@@ -196,6 +196,142 @@ class Loader:
         os.rename(src=temp_file, dst=self.out_bam)
         pysam.index(self.out_bam)
 
+    def hlala(
+        self,
+        hlala_dir: str,
+        bed_dir: str,
+        bed_file: str,
+        main_seed: int,
+        out_bam: str,
+    ) -> None:
+
+        info(f"Loader - Begin sampling")
+        self.main_seed = int(main_seed)
+        self.out_bam = out_bam
+        self.prg_coords_cache = {}
+
+        # Get interval info
+        self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
+
+        # Get multiple seeds for per-bucket randomness
+        self.get_interval_seeds(main_seed=self.main_seed)
+
+        # Get empty read buckets for each interval
+        self.get_empty_buckets()
+
+        self.get_prg_contigs()
+        self.hlala_prg_dir = hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/translation/"
+
+        for r in self.get_prg_reads():
+
+            chr6_coords = self.get_prg_read_chr6_coords(read=r)
+
+            # Keep a tally of buckets a read can fall into
+            candidate_buckets = []
+            prior_has_overlap = False
+            for i, interval in enumerate(self.intervals.tree):
+
+                # print(f"{chr6_coords=}\n{interval.begin=} {interval.end=}\n")
+
+                has_overlap = self.overlap(
+                    read_coords=(chr6_coords[0], chr6_coords[1]),
+                    int_coords=(interval.begin, interval.end),
+                )
+
+                # Reads should overlap a number of sequential intervals
+                if has_overlap:
+                    prior_has_overlap = True
+                    candidate_buckets.append(i)
+                # If no more overlapping intervals in sequence, no need to check further
+                elif prior_has_overlap:
+                    break
+
+            # Randomly select one bucket to deposit the read
+            try:
+                np.random.seed(seed=self.main_seed)
+                b = np.random.choice(a=candidate_buckets)
+                self.buckets[b].append(r)
+
+            except ValueError as e:
+                pass
+
+        # After all reads have been sorted into buckets
+        self.reads = []
+        for bucket, interval, seed in zip(
+            self.buckets, self.intervals.tree, self.seeds
+        ):
+
+            # Count reads that overhang from previous intervals
+            overhang_read_count = sum(
+                1
+                for prev_read in self.reads
+                if self.overlap(
+                    read_coords=(
+                        self.get_prg_read_chr6_coords(read=prev_read)[0],
+                        self.get_prg_read_chr6_coords(read=prev_read)[1],
+                    ),
+                    int_coords=(interval.begin, interval.end),
+                )
+            )
+
+            # Calculate actual amount of reads to sample
+            count = int(interval.data) - overhang_read_count
+
+            # Do the sampling
+            np.random.seed(seed=seed)
+            self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
+
+        # Write kept reads
+        self.write_prg_reads()
+
+    def get_prg_coords(self, prg_name) -> tuple[int, int]:
+
+        if prg_name not in self.prg_coords_cache:
+
+            prg_number = prg_name[4:]
+            with open("results/top_blast_hits/" + prg_number + ".txt", "r") as f:
+                try:
+                    start, end = f.readline().split("\t")
+                except ValueError as e:
+                    start, end = (-2, -1)
+                self.prg_coords_cache[prg_name] = (int(start), int(end))
+
+        return self.prg_coords_cache[prg_name]
+
+    def get_prg_contigs(self) -> None:
+
+        self.prg_contigs = [
+            contig for contig in self.bam.references if contig.startswith("PRG")
+        ]
+
+    def get_prg_reads(self):
+
+        for contig in self.prg_contigs:
+            for r in self.bam.fetch(contig=contig):
+                if r.is_mapped:
+                    yield r
+
+    def get_prg_read_chr6_coords(self, read) -> tuple[int, int]:
+
+        read_coords_prg = read.get_reference_positions()
+        prg_contig_coords_chr6 = self.get_prg_coords(read.reference_name)
+
+        read_coords_chr6 = (
+            prg_contig_coords_chr6[0] + read_coords_prg[0],
+            prg_contig_coords_chr6[0] + read_coords_prg[1],
+        )
+
+        return read_coords_chr6
+
+    def write_prg_reads(self):
+
+        out_bam = Loader(file=self.out_bam, template=self.bam)
+        for r in self.reads:
+            out_bam.bam.write(read=r)
+
+        out_bam.close()
+        self.sort_and_index()
+
     def close(self) -> None:
         """
         Close BAM file using pysam's internal method

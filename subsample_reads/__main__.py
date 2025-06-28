@@ -48,6 +48,25 @@ def sample_mode(args):
     in_bam.close()
 
 
+def hlala_mode(args):
+    """
+    Sample HLALA outputs based on PRG construction data
+    """
+    in_bam = Loader(
+        file=args.hlala_dir + "working/" + args.sampleID + "/remapped_with_a.bam"
+    )
+
+    in_bam.hlala(
+        hlala_dir=args.hlala_dir,
+        bed_dir=args.bed_dir,
+        bed_file=args.bed,
+        main_seed=args.seed,
+        out_bam=args.out_bam,
+    )
+
+    in_bam.close()
+
+
 def plotter_mode(args):
     """
     Chart a distribution of reads from given BAM file
@@ -75,7 +94,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(
         required=True,
         title="Functions",
-        description="Use -h flag with any subcommand to learn more about usage.",
+        description="Use -h flag with any subcommand to learn usage.",
     )
 
     # Mapping
@@ -160,6 +179,44 @@ if __name__ == "__main__":
         help="BAM file to write subsampled reads to.",
     )
     sample.set_defaults(func=sample_mode)
+
+    hlala = subparsers.add_parser(
+        "hlala",
+        help="Apply generated read depth distribution(s) from selected BED file(s) to HLA-LA output",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    hlala.add_argument(
+        "--hlala-dir",
+        default="HLA-LA/",
+        help="Path to directory where HLA-LA is has been setup.",
+    )
+
+    hlala.add_argument("--sampleID", help="HLA-LA processed sample to subsample from")
+
+    bed_selection = hlala.add_mutually_exclusive_group()
+    bed_selection.add_argument(
+        "--bed-dir",
+        default="bed/",
+        help="Top level directory to fetch BED files from. The subdirectory to read from with the name format contig:start-end are determined automatically based on the selected BED file(s).",
+    )
+    bed_selection.add_argument(
+        "--bed",
+        default=None,
+        help="Specify one BED file to sample from.",
+    )
+
+    hlala.add_argument(
+        "--seed",
+        default=42,
+        help="Integer seed to direct the random subsampling process.",
+    )
+    hlala.add_argument(
+        "--out-bam",
+        default="out.bam",
+        help="BAM file to write subsampled reads to.",
+    )
+    hlala.set_defaults(func=hlala_mode)
 
     # Plotting
     plotter = subparsers.add_parser(

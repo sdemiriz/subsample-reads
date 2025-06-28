@@ -11,3 +11,4 @@ config/
 results/
 *.fa
 *fna
+HLA-LA/
