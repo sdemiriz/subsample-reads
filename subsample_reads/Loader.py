@@ -1,5 +1,6 @@
 from subsample_reads.Intervals import Intervals
 from logging import info, warning
+import pandas as pd
 import numpy as np
 import pysam, os
 
@@ -10,13 +11,13 @@ class Loader:
         """
         Constructor
         """
-        info(f"Loader - Initialize Loader for {file}")
+        info("Loader - Initialize Loader")
 
         self.file = file
         self.template = template
         self.load_bam()
 
-        info(f"Loader - Complete initialize Loader for {file}")
+        info("Loader - Complete initialize Loader")
 
     def load_bam(self) -> None:
         """
@@ -27,7 +28,7 @@ class Loader:
             self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
-            info("Loader - Template file not supplied: load BAM in read mode")
+            info("Loader - No template file: load BAM in read mode")
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
 
     def sample(
@@ -44,13 +45,8 @@ class Loader:
         self.main_seed = int(main_seed)
         self.out_bam = out_bam
 
-        # Get interval info
         self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
-
-        # Get multiple seeds for per-bucket randomness
         self.get_interval_seeds(main_seed=self.main_seed)
-
-        # Get empty read buckets for each interval
         self.get_empty_buckets()
 
         mapped_reads = self.get_mapped_reads(
@@ -110,8 +106,10 @@ class Loader:
         self.write_reads()
 
     def get_intervals(self, bed_dir: str, bed_file: str) -> None:
-        """ """
-        info("Loader - Set up Intervals from provided BED files")
+        """
+        Set up Interval instances based on BED-provided coordinates
+        """
+        info("Loader - Ingest Intervals from BED files")
         self.intervals = Intervals(bed_dir=bed_dir, bed_file=bed_file)
 
     def get_interval_seeds(self, main_seed: int) -> None:
@@ -124,7 +122,9 @@ class Loader:
         self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
 
     def get_empty_buckets(self) -> None:
-        """ """
+        """
+        Get an empty read bucket to sort reads from per interval provided
+        """
         info("Loader - Set up an empty bucket per interval")
         self.buckets = [[] for i in range(len(self.intervals))]
 
@@ -133,7 +133,6 @@ class Loader:
         Yield all mapped reads within limits of BED file
         """
         info("Loader - Fetch mapped reads from supplied region")
-
         for r in self.bam.fetch(
             contig=self.normalize_contig(self.intervals.contig), start=start, end=end
         ):
@@ -209,32 +208,101 @@ class Loader:
         self.main_seed = int(main_seed)
         self.out_bam = out_bam
         self.prg_coords_cache = {}
+        self.sequence_txt = pd.read_csv(
+            hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt",
+            sep="\t",
+            usecols=["Name", "FASTAID"],
+        )
 
-        # Get interval info
+        self.interval_range_extension = 1000
+
+        # From UCSC Genome Browser hg38
+        self.gene_maps = {
+            "A": ("chr6", 29942548, 29945884),
+            "B": ("chr6", 31353874, 31357179),
+            "C": ("chr6", 31268748, 31272092),
+            "DMA": ("chr6", 32948617, 32953097),
+            "DMB": ("chr6", 32934628, 32938688),
+            "DOA": ("chr6", 33004181, 33009591),
+            "DPA1": ("chr6", 33073501, 33080775),
+            "DPB1": ("chr6", 33080431, 33087201),
+            "DQA1": ("chr6", 32637405, 32643684),
+            "DQB1": ("chr6", 32659466, 32666684),
+            "DRA": ("chr6", 32439877, 32445046),
+            "DRB1": ("chr6", 32578774, 32589848),
+            "DRB3": ("chr6_GL000250v2_alt", 3824513, 3837642),
+            "DRB4": ("chr6_GL000253v2_alt", 3840434, 3855431),
+            "E": ("chr6", 30489508, 30494194),
+            "F": ("chr6", 29723433, 29727296),
+            "G": ("chr6", 29827824, 29831021),
+            "H": ("chr6", 29887751, 29890482),
+            "K": ("chr6", 29926458, 29929232),
+            "L": ("chr6", 30259624, 30261703),
+            "MICA": ("chr6", 31403671, 31415315),
+            "MICB": ("chr6", 31498144, 31511124),
+            "P": ("chr6", 29800414, 29802425),
+            "TAP1": ("chr6", 32845208, 32853704),
+            "TAP2": ("chr6", 32825414, 32838739),
+            "V": ("chr6", 29792233, 29793136),
+        }
+
+        # From Dilthey Lab Github repo
+        self.contig_names = {
+            "apd": "chr6_GL000250v2_alt",
+            "cox": "chr6_GL000251v2_alt",
+            "dbb": "chr6_GL000252v2_alt",
+            "mann": "chr6_GL000253v2_alt",
+            "mcf": "chr6_GL000254v2_alt",
+            "qbl": "chr6_GL000255v2_alt",
+            "ssto": "chr6_GL000256v2_alt",
+            "chr6": "chr6",
+        }
+
+        # From UCSC Browser
+        self.alt_contig_maps = {
+            "chr6_GL000250v2_alt": ("chr6", 28734408, 33367716),
+            "chr6_GL000251v2_alt": ("chr6", 28510120, 33383765),
+            "chr6_GL000252v2_alt": ("chr6", 28734408, 33361299),
+            "chr6_GL000253v2_alt": ("chr6", 28734408, 33258200),
+            "chr6_GL000254v2_alt": ("chr6", 28734408, 33391865),
+            "chr6_GL000255v2_alt": ("chr6", 28734408, 33411973),
+            "chr6_GL000256v2_alt": ("chr6", 28691466, 33480577),
+            "chr6": ("chr6", 1, 33480577),
+        }
+
         self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
-
-        # Get multiple seeds for per-bucket randomness
         self.get_interval_seeds(main_seed=self.main_seed)
-
-        # Get empty read buckets for each interval
         self.get_empty_buckets()
-
         self.get_prg_contigs()
         self.hlala_prg_dir = hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/translation/"
 
+        self.interval_range = (
+            interval.start - self.interval_range_extension,
+            interval.end + self.interval_range_extension,
+        )
+
         for r in self.get_prg_reads():
 
-            chr6_coords = self.get_prg_read_chr6_coords(read=r)
+            chr6_read = self.map_read_to_chr6(read=r)
+
+            if not self.overlap(
+                self.interval_range,
+                (chr6_read.query_alignment_start, chr6_read.query_alignment_end),
+            ):
+                continue
 
             # Keep a tally of buckets a read can fall into
             candidate_buckets = []
             prior_has_overlap = False
             for i, interval in enumerate(self.intervals.tree):
 
-                # print(f"{chr6_coords=}\n{interval.begin=} {interval.end=}\n")
+                # print(f"{read_coords=}\n{interval.begin=} {interval.end=}\n")
 
                 has_overlap = self.overlap(
-                    read_coords=(chr6_coords[0], chr6_coords[1]),
+                    read_coords=(
+                        chr6_read.reference_start,
+                        chr6_read.reference_end,
+                    ),
                     int_coords=(interval.begin, interval.end),
                 )
 
@@ -250,10 +318,12 @@ class Loader:
             try:
                 np.random.seed(seed=self.main_seed)
                 b = np.random.choice(a=candidate_buckets)
-                self.buckets[b].append(r)
+                self.buckets[b].append(chr6_read)
 
             except ValueError as e:
-                pass
+                info(
+                    f"Error when adding read to bucket: \n{str(chr6_read)[:100]} \n{e}"
+                )
 
         # After all reads have been sorted into buckets
         self.reads = []
@@ -282,55 +352,100 @@ class Loader:
             self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
 
         # Write kept reads
-        self.write_prg_reads()
+        self.write_reads()
 
-    def get_prg_coords(self, prg_name) -> tuple[int, int]:
+    def map_read_to_chr6(self, read):
+        """
+        Map provided PRG-mapped read back to chr6 and corresponding coordinates
+        """
+        # Convert to dictionary to modify
+        r_dict = read.to_dict()
 
-        if prg_name not in self.prg_coords_cache:
+        # Get initial values
+        ref_name, ref_pos = r_dict["ref_name"], r_dict["ref_pos"]
+        next_ref_name, next_ref_pos = r_dict["next_ref_name"], r_dict["next_ref_pos"]
 
-            prg_number = prg_name[4:]
-            with open("results/top_blast_hits/" + prg_number + ".txt", "r") as f:
-                try:
-                    start, end = f.readline().split("\t")
-                except ValueError as e:
-                    start, end = (-2, -1)
-                self.prg_coords_cache[prg_name] = (int(start), int(end))
+        # Convert read contig to chr6 and its start coordinate
+        r_dict["ref_name"] = "chr6"
+        r_dict["ref_pos"] = self.get_prg_read_chr6_coords(
+            prg_contig=ref_name, prg_read_coord=ref_pos
+        )
 
-        return self.prg_coords_cache[prg_name]
+        # Unless special contig names, switch next read contig to chr6
+        if next_ref_name not in ["=", "*"]:
+            r_dict["next_ref_name"] = "chr6"
 
-    def get_prg_contigs(self) -> None:
+        # Switch next read start coordinate to chr6
+        r_dict["next_ref_pos"] = self.get_prg_read_chr6_coords(
+            prg_contig=ref_name, prg_read_coord=next_ref_pos
+        )
 
-        self.prg_contigs = [
-            contig for contig in self.bam.references if contig.startswith("PRG")
-        ]
+        return pysam.AlignedSegment.from_dict(
+            sam_dict=r_dict, header=self.add_chr6_to_header()
+        )
+
+    def add_chr6_to_header(self):
+        """
+        Add chr6 entry to the SQ section of the input BAM file for read back-mapping
+        """
+        # Get dictionary representation of BAM header and add chr6 entry
+        header_sq = self.bam.header.to_dict()["SQ"]
+        header_sq.append({"SN": "chr6", "LN": 170805979})  # hg38
+
+        # Replace the original header from BAM with modified one
+        header = self.bam.header.to_dict()
+        header["SQ"] = header_sq
+
+        # Return de-dictionarified header
+        return pysam.AlignmentHeader.from_dict(header_dict=header)
 
     def get_prg_reads(self):
-
+        """
+        Yield reads mapped to PRG contigs
+        """
         for contig in self.prg_contigs:
             for r in self.bam.fetch(contig=contig):
                 if r.is_mapped:
                     yield r
 
-    def get_prg_read_chr6_coords(self, read) -> tuple[int, int]:
+    def get_prg_contigs(self) -> None:
+        """
+        Get contigs with names that begin with PRG
+        """
+        self.prg_contigs = [
+            contig for contig in self.bam.references if contig.startswith("PRG")
+        ]
 
-        read_coords_prg = read.get_reference_positions()
-        prg_contig_coords_chr6 = self.get_prg_coords(read.reference_name)
+    def get_prg_read_chr6_coords(self, prg_contig, prg_read_coord) -> tuple[int, int]:
+        """
+        Calculate chr6-based start coordinate of a read mapped to a PRG contig
+        """
+        prg_contig_coords_chr6 = self.get_prg_coords(prg_contig=prg_contig)
+        return str((prg_contig_coords_chr6[0]) + int(prg_read_coord))
 
-        read_coords_chr6 = (
-            prg_contig_coords_chr6[0] + read_coords_prg[0],
-            prg_contig_coords_chr6[0] + read_coords_prg[1],
-        )
+    def get_prg_coords(self, prg_contig) -> tuple[int, int]:
+        """
+        Return and cache (start, end) coordinates of PRG contig
+        """
+        if prg_contig not in self.prg_coords_cache:
 
-        return read_coords_chr6
+            sequence_id = self.sequence_txt[self.sequence_txt["FASTAID"] == prg_contig][
+                "Name"
+            ].values[0]
 
-    def write_prg_reads(self):
+            gene_name = sequence_id.split("*")[0]
 
-        out_bam = Loader(file=self.out_bam, template=self.bam)
-        for r in self.reads:
-            out_bam.bam.write(read=r)
+            # If PRG corresponds to HLA allele (with * notation in name)
+            if gene_name in self.gene_maps:
+                chrom, start, end = self.gene_maps[gene_name]
+            # If PRG corresponds to alt contig
+            elif sequence_id in self.contig_names:
+                alt_contig = self.contig_names[sequence_id]
+                chrom, start, end = self.alt_contig_maps[alt_contig]
 
-        out_bam.close()
-        self.sort_and_index()
+            self.prg_coords_cache[prg_contig] = (int(start), int(end))
+
+        return self.prg_coords_cache[prg_contig]
 
     def close(self) -> None:
         """
