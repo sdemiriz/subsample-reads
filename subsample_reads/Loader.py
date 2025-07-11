@@ -24,11 +24,11 @@ class Loader:
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
         if self.template:
-            info("Loader - Template file supplied: load BAM in write mode")
+            info(f"Loader - Template file supplied: load BAM {self.file} in write mode")
             self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
-            info("Loader - No template file: load BAM in read mode")
+            info(f"Loader - No template file: load BAM {self.file} in read mode")
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
 
     def sample(
@@ -41,7 +41,7 @@ class Loader:
         """
         Sample BAM file according to interval data provided
         """
-        info(f"Loader - Begin sampling")
+        info("Loader - Begin sampling")
         self.main_seed = int(main_seed)
         self.out_bam = out_bam
 
@@ -203,50 +203,43 @@ class Loader:
         main_seed: int,
         out_bam: str,
     ) -> None:
+        """
+        Special sampling procedure for HLA*LA tool output, behaves identically to regular sampling
+        but "un-maps" PRG-mapped reads to their reference chr6 locations before sampling
+        """
+        info(f"Loader - Begin HLA*LA sampling")
 
-        info(f"Loader - Begin sampling")
-        self.main_seed = int(main_seed)
-        self.out_bam = out_bam
-        self.prg_coords_cache = {}
-        self.sequence_txt = pd.read_csv(
-            hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt",
-            sep="\t",
-            usecols=["Name", "FASTAID"],
-        )
-
-        self.interval_range_extension = 1000
-
-        # From UCSC Genome Browser hg38
+        # GENCODE v48 (non-lncRNA ones selected)
         self.gene_maps = {
-            "A": ("chr6", 29942548, 29945884),
-            "B": ("chr6", 31353874, 31357179),
-            "C": ("chr6", 31268748, 31272092),
-            "DMA": ("chr6", 32948617, 32953097),
-            "DMB": ("chr6", 32934628, 32938688),
-            "DOA": ("chr6", 33004181, 33009591),
-            "DPA1": ("chr6", 33073501, 33080775),
-            "DPB1": ("chr6", 33080431, 33087201),
-            "DQA1": ("chr6", 32637405, 32643684),
-            "DQB1": ("chr6", 32659466, 32666684),
-            "DRA": ("chr6", 32439877, 32445046),
-            "DRB1": ("chr6", 32578774, 32589848),
-            "DRB3": ("chr6_GL000250v2_alt", 3824513, 3837642),
-            "DRB4": ("chr6_GL000253v2_alt", 3840434, 3855431),
-            "E": ("chr6", 30489508, 30494194),
-            "F": ("chr6", 29723433, 29727296),
-            "G": ("chr6", 29827824, 29831021),
-            "H": ("chr6", 29887751, 29890482),
-            "K": ("chr6", 29926458, 29929232),
-            "L": ("chr6", 30259624, 30261703),
-            "MICA": ("chr6", 31403671, 31415315),
-            "MICB": ("chr6", 31498144, 31511124),
-            "P": ("chr6", 29800414, 29802425),
-            "TAP1": ("chr6", 32845208, 32853704),
-            "TAP2": ("chr6", 32825414, 32838739),
-            "V": ("chr6", 29792233, 29793136),
+            "A": ("chr6", 29941260, 29949572),
+            "B": ("chr6", 31353872, 31367067),
+            "C": ("chr6", 31268749, 31272130),
+            "DMA": ("chr6", 32948613, 32969094),
+            "DMB": ("chr6", 32934629, 32941028),
+            "DOA": ("chr6", 33004182, 33009591),
+            "DPA1": ("chr6", 33064569, 33080775),
+            "DPB1": ("chr6", 33075936, 33089696),
+            "DQA1": ("chr6", 32628179, 32647062),
+            "DQB1": ("chr6", 32659467, 32668383),
+            "DRA": ("chr6", 32439878, 32445046),
+            "DRB1": ("chr6", 32577902, 32589848),
+            "DRB3": ("chr6_GL000250v2_alt", 3824514, 3837642),
+            "DRB4": ("chr6_GL000253v2_alt", 3840435, 3855431),
+            "E": ("chr6", 30489509, 30494194),
+            "F": ("chr6", 29722775, 29738528),
+            "G": ("chr6", 29826967, 29831125),
+            "H": ("chr6", 29887752, 29890482),
+            "K": ("chr6", 29926459, 29929232),
+            "L": ("chr6", 30259625, 30261703),
+            "MICA": ("chr6", 31399784, 31415315),
+            "MICB": ("chr6", 31494881, 31511124),
+            "P": ("chr6", 29800415, 29802425),
+            "TAP1": ("chr6", 32845209, 32853816),
+            "TAP2": ("chr6", 32821833, 32838739),
+            "V": ("chr6", 29792234, 29793136),
         }
 
-        # From Dilthey Lab Github repo
+        # https://github.com/DiltheyLab/ContigAnalysisScripts/blob/master/fasta2svg.py
         self.contig_names = {
             "apd": "chr6_GL000250v2_alt",
             "cox": "chr6_GL000251v2_alt",
@@ -306,13 +299,11 @@ class Loader:
                     int_coords=(interval.begin, interval.end),
                 )
 
-                # Reads should overlap a number of sequential intervals
-                if has_overlap:
-                    prior_has_overlap = True
-                    candidate_buckets.append(i)
-                # If no more overlapping intervals in sequence, no need to check further
-                elif prior_has_overlap:
-                    break
+    def sample_reads_in_buckets(self):
+        """
+        Sort reads that overlap with BED intervals into buckets
+        """
+        info("Loader - Sort reads into buckets")
 
             # Randomly select one bucket to deposit the read
             try:
@@ -330,6 +321,9 @@ class Loader:
         for bucket, interval, seed in zip(
             self.buckets, self.intervals.tree, self.seeds
         ):
+            info(
+                f"Loader - Sampling reads in interval [{interval.begin}-{interval.end}]"
+            )
 
             # Count reads that overhang from previous intervals
             overhang_read_count = sum(
@@ -346,6 +340,9 @@ class Loader:
 
             # Calculate actual amount of reads to sample
             count = int(interval.data) - overhang_read_count
+
+            info(f"Loader - {overhang_read_count} reads overlap from previous interval")
+            info(f"Loader - {count} reads need to be sampled")
 
             # Do the sampling
             np.random.seed(seed=seed)
