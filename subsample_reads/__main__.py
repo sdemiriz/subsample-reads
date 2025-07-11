@@ -4,6 +4,7 @@ from subsample_reads.Plotter import Plotter
 from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
 from logging import getLogger, basicConfig, info, DEBUG
+from datetime import datetime as dt
 import argparse
 
 logger = getLogger("root")
