@@ -3,7 +3,6 @@ from pathlib import Path
 from logging import info
 import pandas as pd
 import numpy as np
-import random
 
 
 class Intervals:
@@ -16,7 +15,7 @@ class Intervals:
 
         # Read BED file
         self.handle_bed_files(bed_dir=bed_dir, bed_file=bed_file)
-        self.get_bed()
+        self.get_bed(path=self.bed_file)
 
         # Get contig, start, and end from BED
         self.get_contig()
@@ -36,33 +35,28 @@ class Intervals:
 
         if bed_file:
             self.bed_file = bed_file
+            info(f"Intervals - Received BED file path {self.bed_file}")
         elif bed_dir:
             self.bed_file = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))
+            info(f"Intervals - Selected {self.bed_file} random BED file from {bed_dir}")
 
     def __len__(self):
         return len(self.tree)
-
-    def get_bed(self):
-        """
-        Read all input files as DataFrames
-        """
-        info("Intervals - Read in BED file(s)")
-        self.bed = self.read_bed(path=self.bed_file)
 
     def get_contig(self):
         """
         Gets contig from first BED file (assumes BED files have been validated)
         """
-        info("Intervals - Set contig value")
         self.contig = self.bed["contig"][0]
+        info(f"Intervals - Set contig value {self.contig}")
 
-    def read_bed(self, path: str) -> list[pd.DataFrame]:
+    def get_bed(self, path: str) -> list[pd.DataFrame]:
         """
         Read BED file from supplied filename
         """
-        info(f"Intervals - Read BED {path}")
+        info(f"Intervals - Read BED from {path}")
 
-        return pd.read_csv(
+        self.bed = pd.read_csv(
             path,
             sep="\t",
             header=None,
@@ -87,6 +81,7 @@ class Intervals:
             tree.add(Interval(begin=row[1], end=row[2], data=row[3]))
 
         self.tree = IntervalTree(sorted(tree))
+        info(f"Intervals - Created IntervalTree from {len(self.tree)} intervals")
 
     def get_limits(self) -> tuple[int, int]:
         """
