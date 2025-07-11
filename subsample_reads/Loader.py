@@ -55,54 +55,10 @@ class Loader:
 
         # For all mapped reads
         for r in mapped_reads:
+            self.add_read_to_bucket(read=r)
 
-            # Keep a tally of buckets a read can fall into
-            candidate_buckets = []
-            prior_has_overlap = False
-            for i, interval in enumerate(self.intervals.tree):
-
-                has_overlap = self.overlap(
-                    read_coords=(r.reference_start, r.reference_end),
-                    int_coords=(interval.begin, interval.end),
-                )
-
-                # Reads should overlap a number of sequential intervals
-                if has_overlap:
-                    prior_has_overlap = True
-                    candidate_buckets.append(i)
-                # If no more overlapping intervals in sequence, no need to check further
-                elif prior_has_overlap:
-                    break
-
-            # Randomly select one bucket to deposit the read
-            np.random.seed(seed=self.main_seed)
-            b = np.random.choice(a=candidate_buckets)
-            self.buckets[b].append(r)
-
-        # After all reads have been sorted into buckets
-        self.reads = []
-        for bucket, interval, seed in zip(
-            self.buckets, self.intervals.tree, self.seeds
-        ):
-
-            # Count reads that overhang from previous intervals
-            overhang_read_count = sum(
-                1
-                for prev_read in self.reads
-                if self.overlap(
-                    read_coords=(prev_read.reference_start, prev_read.reference_end),
-                    int_coords=(interval.begin, interval.end),
-                )
-            )
-
-            # Calculate actual amount of reads to sample
-            count = int(interval.data) - overhang_read_count
-
-            # Do the sampling
-            np.random.seed(seed=seed)
-            self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
-
-        # Write kept reads
+        # Sort reads and write reads
+        self.sample_reads_in_buckets()
         self.write_reads()
 
     def get_intervals(self, bed_dir: str, bed_file: str) -> None:
@@ -263,41 +219,50 @@ class Loader:
             "chr6": ("chr6", 1, 33480577),
         }
 
+        self.main_seed = int(main_seed)
+        self.out_bam = out_bam
+
+        self.prg_coords_cache = {}
+        self.sequence_txt = pd.read_csv(
+            hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt",
+            sep="\t",
+            usecols=["Name", "FASTAID"],
+        )
+
+        contigs = self.get_prg_contigs()
         self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
         self.get_interval_seeds(main_seed=self.main_seed)
         self.get_empty_buckets()
-        self.get_prg_contigs()
-        self.hlala_prg_dir = hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/translation/"
 
+        limit_extension = 1000
         self.interval_range = (
-            interval.start - self.interval_range_extension,
-            interval.end + self.interval_range_extension,
+            self.intervals.start - limit_extension,
+            self.intervals.end + limit_extension,
         )
 
-        for r in self.get_prg_reads():
+        prg_contigs = self.get_prg_reads(contigs=contigs)
+
+        skipped_read_count = 0
+        info("Loader - Iterate over PRG reads")
+        for r in prg_contigs:
 
             chr6_read = self.map_read_to_chr6(read=r)
 
+            # Don't consider read if it doesn't overlap any intervals
             if not self.overlap(
-                self.interval_range,
-                (chr6_read.query_alignment_start, chr6_read.query_alignment_end),
+                read_coords=(chr6_read.reference_start, chr6_read.reference_end),
+                int_coords=self.interval_range,
             ):
+                skipped_read_count += 1
+                if skipped_read_count % 1000 == 0:
+                    info(f"Loader - Skipped {skipped_read_count} reads")
+
                 continue
 
-            # Keep a tally of buckets a read can fall into
-            candidate_buckets = []
-            prior_has_overlap = False
-            for i, interval in enumerate(self.intervals.tree):
+            self.add_read_to_bucket(read=r)
 
-                # print(f"{read_coords=}\n{interval.begin=} {interval.end=}\n")
-
-                has_overlap = self.overlap(
-                    read_coords=(
-                        chr6_read.reference_start,
-                        chr6_read.reference_end,
-                    ),
-                    int_coords=(interval.begin, interval.end),
-                )
+        self.sample_reads_in_buckets()
+        self.write_reads()
 
     def sample_reads_in_buckets(self):
         """
@@ -305,16 +270,8 @@ class Loader:
         """
         info("Loader - Sort reads into buckets")
 
-            # Randomly select one bucket to deposit the read
-            try:
-                np.random.seed(seed=self.main_seed)
-                b = np.random.choice(a=candidate_buckets)
-                self.buckets[b].append(chr6_read)
-
-            except ValueError as e:
-                info(
-                    f"Error when adding read to bucket: \n{str(chr6_read)[:100]} \n{e}"
-                )
+        for i, bucket in enumerate(self.buckets):
+            info(f"Loader - {len(bucket)} total reads deposited into bucket {i}")
 
         # After all reads have been sorted into buckets
         self.reads = []
@@ -330,10 +287,7 @@ class Loader:
                 1
                 for prev_read in self.reads
                 if self.overlap(
-                    read_coords=(
-                        self.get_prg_read_chr6_coords(read=prev_read)[0],
-                        self.get_prg_read_chr6_coords(read=prev_read)[1],
-                    ),
+                    read_coords=(prev_read.reference_start, prev_read.reference_end),
                     int_coords=(interval.begin, interval.end),
                 )
             )
@@ -345,11 +299,11 @@ class Loader:
             info(f"Loader - {count} reads need to be sampled")
 
             # Do the sampling
-            np.random.seed(seed=seed)
-            self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
-
-        # Write kept reads
-        self.write_reads()
+            try:
+                np.random.seed(seed=seed)
+                self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
+            except ValueError as e:
+                info(f"Loader - No reads in bucket for interval:\n{e}")
 
     def map_read_to_chr6(self, read):
         """
@@ -364,43 +318,26 @@ class Loader:
 
         # Convert read contig to chr6 and its start coordinate
         r_dict["ref_name"] = "chr6"
-        r_dict["ref_pos"] = self.get_prg_read_chr6_coords(
-            prg_contig=ref_name, prg_read_coord=ref_pos
-        )
+        r_dict["ref_pos"] = self.convert_to_chr6(prg_contig=ref_name, prg_coord=ref_pos)
 
-        # Unless special contig names, switch next read contig to chr6
-        if next_ref_name not in ["=", "*"]:
+        # Account for "=" as contig name
+        if next_ref_name != "=":
             r_dict["next_ref_name"] = "chr6"
 
         # Switch next read start coordinate to chr6
-        r_dict["next_ref_pos"] = self.get_prg_read_chr6_coords(
-            prg_contig=ref_name, prg_read_coord=next_ref_pos
+        r_dict["next_ref_pos"] = self.convert_to_chr6(
+            prg_contig=ref_name, prg_coord=next_ref_pos
         )
 
         return pysam.AlignedSegment.from_dict(
             sam_dict=r_dict, header=self.add_chr6_to_header()
         )
 
-    def add_chr6_to_header(self):
-        """
-        Add chr6 entry to the SQ section of the input BAM file for read back-mapping
-        """
-        # Get dictionary representation of BAM header and add chr6 entry
-        header_sq = self.bam.header.to_dict()["SQ"]
-        header_sq.append({"SN": "chr6", "LN": 170805979})  # hg38
-
-        # Replace the original header from BAM with modified one
-        header = self.bam.header.to_dict()
-        header["SQ"] = header_sq
-
-        # Return de-dictionarified header
-        return pysam.AlignmentHeader.from_dict(header_dict=header)
-
-    def get_prg_reads(self):
+    def get_prg_reads(self, contigs):
         """
         Yield reads mapped to PRG contigs
         """
-        for contig in self.prg_contigs:
+        for contig in contigs:
             for r in self.bam.fetch(contig=contig):
                 if r.is_mapped:
                     yield r
@@ -409,16 +346,14 @@ class Loader:
         """
         Get contigs with names that begin with PRG
         """
-        self.prg_contigs = [
-            contig for contig in self.bam.references if contig.startswith("PRG")
-        ]
+        return [contig for contig in self.bam.references if contig.startswith("PRG")]
 
-    def get_prg_read_chr6_coords(self, prg_contig, prg_read_coord) -> tuple[int, int]:
+    def convert_to_chr6(self, prg_contig, prg_coord) -> str:
         """
-        Calculate chr6-based start coordinate of a read mapped to a PRG contig
+        Calculate chr6-based start coordinate of a PRG-mapped read
         """
-        prg_contig_coords_chr6 = self.get_prg_coords(prg_contig=prg_contig)
-        return str((prg_contig_coords_chr6[0]) + int(prg_read_coord))
+        chr6_coords = self.get_prg_coords(prg_contig=prg_contig)
+        return str((chr6_coords[0]) + int(prg_coord))
 
     def get_prg_coords(self, prg_contig) -> tuple[int, int]:
         """
@@ -443,6 +378,55 @@ class Loader:
             self.prg_coords_cache[prg_contig] = (int(start), int(end))
 
         return self.prg_coords_cache[prg_contig]
+
+    def add_chr6_to_header(self):
+        """
+        Add chr6 entry to the SQ section of the input BAM file for read back-mapping
+        """
+        # Get dictionary representation of BAM header and add chr6 entry
+        header_sq = self.bam.header.to_dict()["SQ"]
+        header_sq.append({"SN": "chr6", "LN": 170805979})  # hg38
+
+        # Replace the original header from BAM with modified one
+        header = self.bam.header.to_dict()
+        header["SQ"] = header_sq
+
+        # Return de-dictionarified header
+        return pysam.AlignmentHeader.from_dict(header_dict=header)
+
+    def add_read_to_bucket(self, read: pysam.AlignedSegment):
+        """
+        Compare read coordinates with every bucket to find overlap
+        If overlap is found with multiple buckets, randomly place read into one
+        """
+        # Keep a tally of buckets a read can fall into
+        candidate_buckets = []
+        prior_has_overlap = False
+        for i, interval in enumerate(self.intervals.tree):
+
+            # print(f"{read_coords=}\n{interval.begin=} {interval.end=}\n")
+
+            has_overlap = self.overlap(
+                read_coords=(
+                    read.reference_start,
+                    read.reference_end,
+                ),
+                int_coords=(interval.begin, interval.end),
+            )
+
+            # Reads should overlap a number of sequential intervals
+            if has_overlap:
+                prior_has_overlap = True
+                candidate_buckets.append(i)
+            # If no more overlapping intervals in sequence, no need to check further
+            elif prior_has_overlap:
+                break
+
+        # Randomly select one bucket to deposit the read
+        if len(candidate_buckets) > 0:
+            np.random.seed(seed=self.main_seed)
+            b = np.random.choice(a=candidate_buckets)
+            self.buckets[b].append(read)
 
     def close(self) -> None:
         """
