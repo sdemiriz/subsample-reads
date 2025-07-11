@@ -10,7 +10,7 @@ import argparse
 logger = getLogger("root")
 
 basicConfig(
-    filename=dt.now.strftime("log/%H%M%S_%d%m%Y.txt"),
+    filename=dt.now().strftime("log/%H%M%S_%d%m%Y.txt"),
     level=DEBUG,
     format="{asctime} [{levelname}]: {message}",
     style="{",
@@ -82,7 +82,7 @@ def plotter_mode(args):
     )
 
 
-if __name__ == "__main__":
+def main():
 
     info("Main - Begin log")
 
@@ -263,3 +263,11 @@ if __name__ == "__main__":
 
     args.func(args)
     info(f"Main - End log\n")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        info(f"Main - Exception encountered. Details:\n{e}")
+        raise e
