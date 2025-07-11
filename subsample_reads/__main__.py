@@ -9,7 +9,7 @@ import argparse
 logger = getLogger("root")
 
 basicConfig(
-    filename="log.txt",
+    filename=dt.now.strftime("log/%H%M%S_%d%m%Y.txt"),
     level=DEBUG,
     format="{asctime} [{levelname}]: {message}",
     style="{",
