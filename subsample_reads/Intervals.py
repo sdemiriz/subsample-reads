@@ -50,7 +50,7 @@ class Intervals:
         self.contig = self.bed["contig"][0]
         info(f"Intervals - Set contig value {self.contig}")
 
-    def get_bed(self, path: str) -> list[pd.DataFrame]:
+    def get_bed(self, path: str) -> None:
         """
         Read BED file from supplied filename
         """

@@ -1,7 +1,6 @@
 from subsample_reads.Intervals import Intervals
 from subsample_reads.Loader import Loader
 import matplotlib.pyplot as plt
-from pathlib import Path
 from logging import info
 import pandas as pd
 
@@ -18,7 +17,7 @@ class Plotter:
         out_plt: str | None,
     ) -> None:
         """
-        Constructor for plotting utility
+        Constructor
         """
         info(f"Plotter - Initialize Plotter")
 
@@ -56,7 +55,7 @@ class Plotter:
         info("Plotter - Complete pileup BAMs")
         return pileups
 
-    def get_counts(self, start, end) -> list:
+    def get_counts(self, start: int, end: int) -> list:
         """
         Pileup BAMs for the defined region
         """
@@ -98,7 +97,10 @@ class Plotter:
         ax_bar = ax_line.twinx()
         return fig, ax_line, ax_bar
 
-    def add_lineplot(self, ax):
+    def add_lineplot(self, ax) -> None:
+        """
+        Add line plot representing coverage depth to supplied axis
+        """
         info("Plotter - Plot pileups")
 
         for p, l, c in zip(
@@ -111,7 +113,10 @@ class Plotter:
                 pileup["coord"], pileup["depth"], label=l, alpha=0.8, color=c, zorder=1
             )
 
-    def add_boundaries(self, ax):
+    def add_boundaries(self, ax) -> None:
+        """
+        Add vertical lines signifying interval boundaries to supplied axis
+        """
         info("Plotter - Draw boundaries")
 
         for b in self.boundaries:
@@ -119,7 +124,10 @@ class Plotter:
                 x=b, linestyle="--", linewidth=1.5, color="gray", alpha=0.5, zorder=1
             )
 
-    def add_annotations(self, ax_line, ax_bar):
+    def add_annotations(self, ax_line, ax_bar) -> None:
+        """
+        Add various text labels to supplied axes
+        """
         info("Plotter - Add axes, title, legend")
 
         ax_line.ticklabel_format(useOffset=False, style="plain")
@@ -132,6 +140,9 @@ class Plotter:
         ax_line.legend(loc="upper right")
 
     def add_fractions(self, ax):
+        """
+        Add fractions to represent distribution values to supplied axis
+        """
         info("Plotter - Add fraction annotations")
         for row in self.intervals.bed.iterrows():
             ax.text(
@@ -145,6 +156,9 @@ class Plotter:
             )
 
     def add_barplot(self, ax):
+        """
+        Add barplot signifying number of reads in each interval
+        """
         info("Plotter - Add barplot")
         for row in self.intervals.bed.iterrows():
             counts = self.get_counts(row[1]["start"], row[1]["end"])

@@ -17,6 +17,8 @@ class Loader:
         self.template = template
         self.load_bam()
 
+        self.count = 0
+
         info("Loader - Complete initialize Loader")
 
     def load_bam(self) -> None:
@@ -95,13 +97,21 @@ class Loader:
             if r.is_mapped:
                 yield r
 
-    @staticmethod
-    def overlap(read_coords: tuple[int, int], int_coords: tuple[int, int]) -> bool:
+    def overlap(
+        self, read_coords: tuple[int, int], int_coords: tuple[int, int]
+    ) -> bool:
         """
         Determine whether the read coordinates overlap the interval coordinates (start-end)
         Read cannot hang over the start of the interval
         """
-        return max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
+        b = max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
+
+        self.count += 1
+        if self.count % 1000 == 0:
+            info(f"Loader - Overlap between:\n{read_coords}\n{int_coords}")
+            info(f"Loader - Overlap exists:\n{b}")
+
+        return b
 
     def normalize_contig(self, contig) -> str:
         """
@@ -246,7 +256,13 @@ class Loader:
         info("Loader - Iterate over PRG reads")
         for r in prg_contigs:
 
+            info(
+                f"Loader - Original read: {r.query_name} {r.reference_name}:{r.reference_start}-{r.reference_end}"
+            )
             chr6_read = self.map_read_to_chr6(read=r)
+            info(
+                f"Loader - Back-mapped read: {chr6_read.query_name} {chr6_read.reference_name}:{chr6_read.reference_start}-{chr6_read.reference_end}"
+            )
 
             # Don't consider read if it doesn't overlap any intervals
             if not self.overlap(
@@ -271,7 +287,7 @@ class Loader:
         info("Loader - Sort reads into buckets")
 
         for i, bucket in enumerate(self.buckets):
-            info(f"Loader - {len(bucket)} total reads deposited into bucket {i}")
+            info(f"Loader - {len(bucket)} reads in bucket {i}")
 
         # After all reads have been sorted into buckets
         self.reads = []
