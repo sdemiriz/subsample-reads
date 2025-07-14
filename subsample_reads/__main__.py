@@ -3,6 +3,7 @@
 from subsample_reads.Plotter import Plotter
 from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
+from subsample_reads.Comparator import Comparator
 from logging import getLogger, basicConfig, info, DEBUG
 from datetime import datetime as dt
 import argparse
@@ -66,6 +67,13 @@ def hlala_mode(args):
     )
 
     in_bam.close()
+
+
+def compare_mode(args):
+    """
+    Sample HLALA outputs based on PRG construction data
+    """
+    Comparator(bam1_path=args.bam1_path, bam2_path=args.bam2_path, out=args.out_path)
 
 
 def plotter_mode(args):
@@ -181,6 +189,7 @@ def main():
     )
     sample.set_defaults(func=sample_mode)
 
+    # HLA-LA specific sampling
     hlala = subparsers.add_parser(
         "hlala",
         help="Apply generated read depth distribution(s) from selected BED file(s) to HLA-LA output",
@@ -218,6 +227,26 @@ def main():
         help="BAM file to write subsampled reads to.",
     )
     hlala.set_defaults(func=hlala_mode)
+
+    compare = subparsers.add_parser(
+        "hlala",
+        help="Apply generated read depth distribution(s) from selected BED file(s) to HLA-LA output",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    compare.add_argument(
+        "--bam1",
+        help="Path to first BAM for the comparison.",
+    )
+    compare.add_argument(
+        "--bam2",
+        help="Path to second BAM for the comparison.",
+    )
+    compare.add_argument(
+        "--out",
+        help="Path for output tab-separated file containing cross-mapping info.",
+    )
+
+    compare.set_defaults(func=compare_mode)
 
     # Plotting
     plotter = subparsers.add_parser(
