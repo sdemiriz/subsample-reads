@@ -63,14 +63,16 @@ def compare_mode(args):
 
 def plotter_mode(args):
     """Chart a distribution of reads from given BAM file."""
-    Plotter(
+    plotter = Plotter(
         in_bam=args.in_bam,
         map_bam=args.map_bam,
-        out_bam=args.out_bam,
+        sub_bam=args.sub_bam,
         bed_dir=args.bed_dir,
-        bed_file=args.bed,
+        bed=args.bed,
         out_plt=args.out_plt,
     )
+
+    plotter.plot()
 
 def main():
     """Main CLI entry point for subsample-reads toolkit."""
@@ -150,25 +152,25 @@ def main():
         help="Plot BAM file(s) read depth together with supplied BED file(s).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    plotter.add_argument("--in-bam", required=True, help="BAM file to plot depth for.")
-    plotter.add_argument("--map-bam", required=True, help="BAM file to plot depth for.")
-    plotter.add_argument("--out-bam", required=True, help="BAM file to plot depth for.")
+    plotter.add_argument("--in-bam", required=True, help="Path to input/original BAM file.")
+    plotter.add_argument("--map-bam", required=True, help="Path to mapping BAM file.")
+    plotter.add_argument("--sub-bam", required=True, help="Path to subsampled BAM file.")
     bed_selection = plotter.add_mutually_exclusive_group()
-    bed_selection.add_argument("--bed-dir", default="bed/", help="Directory to fetch a BED file from.")
-    bed_selection.add_argument("--bed", default=None, help="Specify one BED file to plot.")
-    plotter.add_argument("--out-plt", default="out.png", help="Path to write resulting plot to.")
+    bed_selection.add_argument("--bed-dir", default="bed/", help="Directory to fetch a random BED file from.")
+    bed_selection.add_argument("--bed", default=None, help="Specific BED file to plot.")
+    plotter.add_argument("--out-plt", default="out.png", help="Path for the output plot.")
     plotter.set_defaults(func=plotter_mode)
 
     args = parser.parse_args()
-    logger.info("Accept arguments")
+    logger.info("Main - Accept arguments")
 
     try:
         args.func(args)
     except Exception as e:
-        logger.error(f"Exception encountered. Details:\n{e}")
+        logger.error(f"Main - Exception encountered. Details:\n{e}", exc_info=True)
         sys.exit(1)
 
-    logger.info("End log\n")
+    logger.info("Main - End log\n")
 
 if __name__ == "__main__":
     main()
