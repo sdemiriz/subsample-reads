@@ -244,10 +244,10 @@ class Loader:
         self.get_interval_seeds(main_seed=self.main_seed)
         self.get_empty_buckets()
 
-        limit_extension = 1000
+        overhang = 1000
         self.interval_range = (
-            self.intervals.start - limit_extension,
-            self.intervals.end + limit_extension,
+            self.intervals.start - overhang,
+            self.intervals.end + overhang,
         )
 
         prg_contigs = self.get_prg_reads(contigs=contigs)

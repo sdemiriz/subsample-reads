@@ -229,8 +229,8 @@ def main():
     hlala.set_defaults(func=hlala_mode)
 
     compare = subparsers.add_parser(
-        "hlala",
-        help="Apply generated read depth distribution(s) from selected BED file(s) to HLA-LA output",
+        "compare",
+        help="Compare two BAM files to see how many reads overlap with each other",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     compare.add_argument(

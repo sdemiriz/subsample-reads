@@ -83,7 +83,7 @@ class Intervals:
         self.tree = IntervalTree(sorted(tree))
         info(f"Intervals - Created IntervalTree from {len(self.tree)} intervals")
 
-    def get_limits(self) -> tuple[int, int]:
+    def get_limits(self) -> None:
         """
         Return start and end of region from the first BED file (assumes BED files have been validated)
         """

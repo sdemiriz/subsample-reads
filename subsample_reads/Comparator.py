@@ -12,6 +12,26 @@ class Comparator:
         bam1 = Loader(bam1_path)
         bam2 = Loader(bam2_path)
 
+        # Get all query_names from the smaller BAM
+        bam2_query_names = set()
+        for read in self.bam3.fetch():
+            bam2_query_names.add(read.query_name)
+        # If bam2 is smaller, swap the logic
+
+        # Build DataFrame for bam2, filtering by query_name
+        bam1_data = []
+        for read in self.bam1.fetch():
+            if read.query_name in bam2_query_names:
+                bam1_data.append(self._extract_read_info(read, self.bam1))
+        bam1_df = pd.DataFrame.from_records(bam1_data)
+
+        # Build DataFrame for bam1 (all, or filter as well)
+        bam2_data = []
+        for read in self.bam2.fetch():
+            if read.query_name in bam1_df['query_name'].values:
+                bam2_data.append(self._extract_read_info(read, self.bam2))
+        bam2_df = pd.DataFrame.from_records(bam2_data)
+
         info(f"Comparator - Load {bam1_path} and {bam2_path}")
 
         bam1_df = self.reads_to_df(bam=bam1)
