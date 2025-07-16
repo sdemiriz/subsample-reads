@@ -6,6 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Plotter:
 
     def __init__(
@@ -45,13 +46,13 @@ class Plotter:
 
         logger.info("Plotter - Complete initialization")
 
-    def get_pileups(self) -> list:
+    def get_pileups(self) -> list[int]:
         """Pileup BAMs for the defined region"""
         logger.info("Plotter - Pileup BAMs")
 
         pileups = [
             bam.bam.pileup(
-                contig=bam.normalize_contig(self.intervals.contig),
+                contig=bam.normalize_contig(contig=self.intervals.contig),
                 start=self.intervals.start,
                 end=self.intervals.end,
             )
@@ -94,7 +95,7 @@ class Plotter:
         plt.savefig(self.out_plt, dpi=600)
 
     @staticmethod
-    def setup_plot():
+    def setup_plot() -> tuple[plt.Figure, plt.Axes, plt.Axes]:
         """Set up the figure and axes for plotting"""
         logger.info("Plotter - Setup plot")
         fig, ax_line = plt.subplots(layout="constrained")

@@ -14,12 +14,12 @@ class Intervals:
         info(f"Intervals - Initialize Intervals")
 
         # Read BED file
-        self.handle_bed_files(bed_dir=bed_dir, bed_file=bed_file)
-        self.get_bed(path=self.bed_file)
+        self.bed_path = self.get_bed_path(bed_dir=bed_dir, bed_file=bed_file)
+        self.bed = self.get_bed(bed_path=self.bed_path)
 
         # Get contig, start, and end from BED
-        self.get_contig()
-        self.get_limits()
+        self.contig = self.get_contig()
+        self.start, self.end = self.get_limits()
 
         # Build IntervalTree from BED
         self.populate_tree()
@@ -27,37 +27,39 @@ class Intervals:
 
         info(f"Intervals - Complete initialize Intervals")
 
-    def handle_bed_files(self, bed_dir: str, bed_file: str) -> None:
+    def get_bed_path(self, bed_dir: str, bed_file: str) -> str:
         """
         Decide which BED files to read in based on provided file list or count
         """
         info("Intervals - Handle BED files")
 
         if bed_file:
-            self.bed_file = bed_file
-            info(f"Intervals - Received BED file path {self.bed_file}")
+            bed_path = bed_file
+            info(f"Intervals - Received BED file path {bed_file}")
         elif bed_dir:
-            self.bed_file = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))
-            info(f"Intervals - Selected {self.bed_file} random BED file from {bed_dir}")
+            bed_path = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))  # type: ignore
+            info(f"Intervals - Selected {bed_file} random BED file from {bed_dir}")
 
-    def __len__(self):
+        return bed_path
+
+    def __len__(self) -> int:
         return len(self.tree)
 
-    def get_contig(self):
+    def get_contig(self) -> str:
         """
         Gets contig from first BED file (assumes BED files have been validated)
         """
-        self.contig = self.bed["contig"][0]
         info(f"Intervals - Set contig value {self.contig}")
+        return str(self.bed["contig"][0])
 
-    def get_bed(self, path: str) -> None:
+    def get_bed(self, bed_path: str) -> pd.DataFrame:
         """
         Read BED file from supplied filename
         """
-        info(f"Intervals - Read BED from {path}")
+        info(f"Intervals - Read BED from {bed_path}")
 
-        self.bed = pd.read_csv(
-            path,
+        return pd.read_csv(  # type: ignore
+            filepath_or_buffer=bed_path,
             sep="\t",
             header=None,
             names=["contig", "start", "end", "read_count", "fraction"],
@@ -83,11 +85,11 @@ class Intervals:
         self.tree = IntervalTree(sorted(tree))
         info(f"Intervals - Created IntervalTree from {len(self.tree)} intervals")
 
-    def get_limits(self) -> None:
+    def get_limits(self) -> tuple[int, int]:
         """
         Return start and end of region from the first BED file (assumes BED files have been validated)
         """
-        self.start, self.end = min(self.bed["start"]), max(self.bed["end"])
+        return min(self.bed["start"]), max(self.bed["end"])
 
     def validate(self) -> None:
         """
