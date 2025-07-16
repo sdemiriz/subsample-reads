@@ -4,8 +4,10 @@ from logging import info
 import pandas as pd
 import numpy as np
 
+from subsample_reads.FileHandler import FileHandler
 
-class Intervals:
+
+class Intervals(FileHandler):
 
     def __init__(self, bed_dir: str, bed_file: str) -> None:
         """
@@ -34,9 +36,11 @@ class Intervals:
         info("Intervals - Handle BED files")
 
         if bed_file:
+            super().check_file_exists(path=bed_file)
             bed_path = bed_file
             info(f"Intervals - Received BED file path {bed_file}")
         elif bed_dir:
+            super().check_file_exists(path=bed_dir)
             bed_path = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))  # type: ignore
             info(f"Intervals - Selected {bed_file} random BED file from {bed_dir}")
 
