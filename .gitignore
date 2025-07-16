@@ -1,9 +1,19 @@
 venv/
 */__pycache__/
 *png
-*bam*
-*cram*
-log.txt
+*bam
+*bai
+*bed
+*cram
+*fa
+*fai
+*ipynb
+*txt
+!requirements.txt
+*gz
+*sh
+*csv
+*tsv
 slurm*.out
 Snakefile
 .snakemake/
@@ -12,3 +22,4 @@ results/
 *.fa
 *fna
 HLA-LA/
+log/
