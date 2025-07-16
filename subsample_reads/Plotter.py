@@ -1,13 +1,15 @@
+from subsample_reads.FileHandler import FileHandler
 from subsample_reads.Intervals import Intervals
 from subsample_reads.Loader import Loader
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
+import pysam
 
 logger = logging.getLogger(__name__)
 
 
-class Plotter:
+class Plotter(FileHandler):
 
     def __init__(
         self,
@@ -36,17 +38,19 @@ class Plotter:
             list(self.intervals.bed["start"]) + list(self.intervals.bed["end"])
         )
 
-        self.in_bam = Loader(file=in_bam)
-        self.map_bam = Loader(file=map_bam)
-        self.sub_bam = Loader(file=sub_bam)
+        self.in_bam = Loader(bam_path=in_bam)
+        self.map_bam = Loader(bam_path=map_bam)
+        self.sub_bam = Loader(bam_path=sub_bam)
         self.bams = {"in": self.in_bam, "map": self.map_bam, "out": self.sub_bam}
+
         self.colormap = {"in": "#648FFF", "map": "#DC267F", "out": "#FFB000"}
 
+        super().check_file_exists(path=out_plt)
         self.out_plt = out_plt
 
         logger.info("Plotter - Complete initialization")
 
-    def get_pileups(self) -> list[int]:
+    def get_pileups(self) -> list:
         """Pileup BAMs for the defined region"""
         logger.info("Plotter - Pileup BAMs")
 
@@ -95,7 +99,7 @@ class Plotter:
         plt.savefig(self.out_plt, dpi=600)
 
     @staticmethod
-    def setup_plot() -> tuple[plt.Figure, plt.Axes, plt.Axes]:
+    def setup_plot() -> tuple:
         """Set up the figure and axes for plotting"""
         logger.info("Plotter - Setup plot")
         fig, ax_line = plt.subplots(layout="constrained")
@@ -158,7 +162,7 @@ class Plotter:
         logger.info("Plotter - Add barplot")
 
         for row in self.intervals.bed.iterrows():
-            counts = self.get_counts(row[1]["start"], row[1]["end"])
+            counts = self.get_counts(start=row[1]["start"], end=row[1]["end"])
 
             for i, c in zip(range(3), self.colormap.values()):
                 ax.bar(
