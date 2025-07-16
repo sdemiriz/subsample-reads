@@ -1,17 +1,26 @@
-from subsample_reads.Intervals import Intervals
-from logging import info, warning
+import logging
+import os
+from typing import Optional
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
-import pysam, os
+import pysam
+
+from subsample_reads.Intervals import Intervals
+
+logger = logging.getLogger(__name__)
 
 
 class Loader:
 
-    def __init__(self, file: str, template: pysam.AlignmentFile = None) -> None:
+    def __init__(
+        self, file: str, template: Optional[pysam.AlignmentFile] = None
+    ) -> None:
         """
         Constructor
         """
-        info("Loader - Initialize Loader")
+        logger.info("Loader - Initialize")
 
         self.file = file
         self.template = template
@@ -19,18 +28,20 @@ class Loader:
 
         self.count = 0
 
-        info("Loader - Complete initialize Loader")
+        logger.info("Loader - Initialized")
 
     def load_bam(self) -> None:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
         if self.template:
-            info(f"Loader - Template file supplied: load BAM {self.file} in write mode")
+            logger.info(
+                f"Loader - Template file supplied: load BAM {self.file} in write mode"
+            )
             self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
 
         else:
-            info(f"Loader - No template file: load BAM {self.file} in read mode")
+            logger.info(f"Loader - No template file: load BAM {self.file} in read mode")
             self.bam = pysam.AlignmentFile(self.file, mode="rb")
 
     def sample(
@@ -43,7 +54,7 @@ class Loader:
         """
         Sample BAM file according to interval data provided
         """
-        info("Loader - Begin sampling")
+        logger.info("Loader - Begin sampling")
         self.main_seed = int(main_seed)
         self.out_bam = out_bam
 
@@ -67,14 +78,17 @@ class Loader:
         """
         Set up Interval instances based on BED-provided coordinates
         """
-        info("Loader - Ingest Intervals from BED files")
-        self.intervals = Intervals(bed_dir=bed_dir, bed_file=bed_file)
+        logger.info("Loader - Ingest Intervals from BED files")
+        bed_path = Path(bed_dir) / bed_file
+        if not bed_path.exists():
+            raise FileNotFoundError(f"Loader - BED file not found: {bed_path}")
+        self.intervals = Intervals(bed_dir=bed_dir, bed_file=str(bed_path))
 
     def get_interval_seeds(self, main_seed: int) -> None:
         """
         Generate a seed per interval provided
         """
-        info(f"Loader - Generate random seeds")
+        logger.info(f"Loader - Generate random seeds")
 
         np.random.seed(seed=main_seed)
         self.seeds = np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
@@ -83,14 +97,14 @@ class Loader:
         """
         Get an empty read bucket to sort reads from per interval provided
         """
-        info("Loader - Set up an empty bucket per interval")
+        logger.info("Loader - Set up an empty bucket per interval")
         self.buckets = [[] for i in range(len(self.intervals))]
 
     def get_mapped_reads(self, start: int, end: int):
         """
         Yield all mapped reads within limits of BED file
         """
-        info("Loader - Fetch mapped reads from supplied region")
+        logger.info("Loader - Fetch mapped reads from supplied region")
         for r in self.bam.fetch(
             contig=self.normalize_contig(self.intervals.contig), start=start, end=end
         ):
@@ -104,20 +118,17 @@ class Loader:
         Determine whether the read coordinates overlap the interval coordinates (start-end)
         Read cannot hang over the start of the interval
         """
-        b = max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
+        if any(read_coords + int_coords) is None:
+            logger.error(f"Loader - Read or interval coordinates are None")
+            raise ValueError("Loader - Read or interval coordinates are None")
 
-        self.count += 1
-        if self.count % 1000 == 0:
-            info(f"Loader - Overlap between:\n{read_coords}\n{int_coords}")
-            info(f"Loader - Overlap exists:\n{b}")
-
-        return b
+        return max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
 
     def normalize_contig(self, contig) -> str:
         """
         Handle both chrN and N contig names (other formats not supported)
         """
-        info(f"Loader - Normalize contig name {contig}")
+        logger.info(f"Loader - Normalize contig name {contig}")
 
         contig = str(contig)
         if contig in self.bam.references:
@@ -129,7 +140,7 @@ class Loader:
             contig = "chr" + contig
 
         if contig not in self.bam.references:
-            warning(
+            logger.warning(
                 f"Loader - Contig name could not be parsed automatically ({contig})"
             )
             raise ValueError("Cannot auto-detect contig name")
@@ -141,7 +152,7 @@ class Loader:
         Open the output BAM file and write all kept reads
         Sort and index for file for random access in following steps
         """
-        info(f"Loader - Write reads to file")
+        logger.info(f"Loader - Write reads to file")
 
         out_bam = Loader(file=self.out_bam, template=self.bam)
         for r in self.reads:
@@ -154,7 +165,7 @@ class Loader:
         """
         Sort, then index file
         """
-        info(f"Loader - Sort and index output BAM file")
+        logger.info(f"Loader - Sort and index output BAM file")
 
         temp_file = "temp.bam"
         pysam.sort(self.out_bam, "-o", temp_file)
@@ -173,7 +184,7 @@ class Loader:
         Special sampling procedure for HLA*LA tool output, behaves identically to regular sampling
         but "un-maps" PRG-mapped reads to their reference chr6 locations before sampling
         """
-        info(f"Loader - Begin HLA*LA sampling")
+        logger.info(f"Loader - Begin HLA*LA sampling")
 
         # GENCODE v48 (non-lncRNA ones selected)
         self.gene_maps = {
@@ -234,9 +245,9 @@ class Loader:
 
         self.prg_coords_cache = {}
         self.sequence_txt = pd.read_csv(
-            hlala_dir + "/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt",
+            Path(hlala_dir) / "graphs" / "PRG_MHC_GRCh38_withIMGT" / "sequences.txt",
             sep="\t",
-            usecols=["Name", "FASTAID"],
+            usecols=("Name", "FASTAID"),
         )
 
         contigs = self.get_prg_contigs()
@@ -253,14 +264,14 @@ class Loader:
         prg_contigs = self.get_prg_reads(contigs=contigs)
 
         skipped_read_count = 0
-        info("Loader - Iterate over PRG reads")
+        logger.info("Loader - Iterate over PRG reads")
         for r in prg_contigs:
 
-            info(
+            logger.info(
                 f"Loader - Original read: {r.query_name} {r.reference_name}:{r.reference_start}-{r.reference_end}"
             )
             chr6_read = self.map_read_to_chr6(read=r)
-            info(
+            logger.info(
                 f"Loader - Back-mapped read: {chr6_read.query_name} {chr6_read.reference_name}:{chr6_read.reference_start}-{chr6_read.reference_end}"
             )
 
@@ -271,7 +282,7 @@ class Loader:
             ):
                 skipped_read_count += 1
                 if skipped_read_count % 1000 == 0:
-                    info(f"Loader - Skipped {skipped_read_count} reads")
+                    logger.info(f"Loader - Skipped {skipped_read_count} reads")
 
                 continue
 
@@ -284,17 +295,17 @@ class Loader:
         """
         Sort reads that overlap with BED intervals into buckets
         """
-        info("Loader - Sort reads into buckets")
+        logger.info("Loader - Sort reads into buckets")
 
         for i, bucket in enumerate(self.buckets):
-            info(f"Loader - {len(bucket)} reads in bucket {i}")
+            logger.info(f"Loader - {len(bucket)} reads in bucket {i}")
 
         # After all reads have been sorted into buckets
         self.reads = []
         for bucket, interval, seed in zip(
             self.buckets, self.intervals.tree, self.seeds
         ):
-            info(
+            logger.info(
                 f"Loader - Sampling reads in interval [{interval.begin}-{interval.end}]"
             )
 
@@ -311,15 +322,17 @@ class Loader:
             # Calculate actual amount of reads to sample
             count = int(interval.data) - overhang_read_count
 
-            info(f"Loader - {overhang_read_count} reads overlap from previous interval")
-            info(f"Loader - {count} reads need to be sampled")
+            logger.info(
+                f"Loader - {overhang_read_count} reads overlap from previous interval"
+            )
+            logger.info(f"Loader - {count} reads need to be sampled")
 
             # Do the sampling
             try:
                 np.random.seed(seed=seed)
                 self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
             except ValueError as e:
-                info(f"Loader - No reads in bucket for interval:\n{e}")
+                logger.info(f"Loader - No reads in bucket for interval:\n{e}")
 
     def map_read_to_chr6(self, read):
         """
@@ -358,20 +371,20 @@ class Loader:
                 if r.is_mapped:
                     yield r
 
-    def get_prg_contigs(self) -> None:
+    def get_prg_contigs(self) -> list[str]:
         """
         Get contigs with names that begin with PRG
         """
         return [contig for contig in self.bam.references if contig.startswith("PRG")]
 
-    def convert_to_chr6(self, prg_contig, prg_coord) -> str:
+    def convert_to_chr6(self, prg_contig: str, prg_coord: int) -> str:
         """
         Calculate chr6-based start coordinate of a PRG-mapped read
         """
         chr6_coords = self.get_prg_coords(prg_contig=prg_contig)
         return str((chr6_coords[0]) + int(prg_coord))
 
-    def get_prg_coords(self, prg_contig) -> tuple[int, int]:
+    def get_prg_coords(self, prg_contig: str) -> tuple[int, int]:
         """
         Return and cache (start, end) coordinates of PRG contig
         """
@@ -448,5 +461,5 @@ class Loader:
         """
         Close BAM file using pysam's internal method
         """
-        info(f"Loader - Close BAM file")
+        logger.info(f"Loader - Close BAM file")
         self.bam.close()
