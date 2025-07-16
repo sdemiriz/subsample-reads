@@ -36,7 +36,7 @@ def mapper_mode(args):
 
 def sample_mode(args):
     """Sample provided BAM file based on regions in BED file."""
-    in_bam = Loader(file=args.in_bam)
+    in_bam = Loader(bam_path=args.in_bam)
     in_bam.run_sampling(
         bed_dir=args.bed_dir,
         bed_file=args.bed,
@@ -49,7 +49,7 @@ def sample_mode(args):
 def hlala_mode(args):
     """Sample HLALA outputs based on PRG construction data."""
     in_bam = Loader(
-        file=os.path.join(
+        bam_path=os.path.join(
             args.hlala_dir, "working", args.sampleID, "remapped_with_a.bam"
         )
     )

@@ -7,45 +7,48 @@ import pandas as pd
 import numpy as np
 import pysam
 
+from subsample_reads.FileHandler import FileHandler
 from subsample_reads.Intervals import Intervals
 
 logger = logging.getLogger(__name__)
 
 
-class Loader:
+class Loader(FileHandler):
 
     def __init__(
-        self, file: str, template: Optional[pysam.AlignmentFile] = None
+        self, bam_path: str, template: Optional[pysam.AlignmentFile] = None
     ) -> None:
         """
         Constructor
         """
         logger.info("Loader - Initialize")
 
-        self.check_file_exists(file)
-        self.file = file
-
         if template:
-            self.check_file_exists(template.filename)
+            super().check_file_exists(path=template.filename)
         self.template = template
 
-        self.load_bam()
+        self.bam_path = bam_path
+        self.bam = self.load_bam(bam_path=self.bam_path)
 
         logger.info("Loader - Initialized")
 
-    def load_bam(self) -> None:
+    def load_bam(self, bam_path: str) -> pysam.AlignmentFile:
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
         if self.template:
             logger.info(
-                f"Loader - Template file supplied: load BAM {self.file} (write)"
+                f"Loader - Template file supplied: load BAM {self.bam_path} (write)"
             )
-            self.bam = pysam.AlignmentFile(self.file, mode="wb", template=self.template)
+            super().check_file_exists(path=bam_path)
+            bam = pysam.AlignmentFile(self.bam_path, mode="wb", template=self.template)
 
         else:
-            logger.info(f"Loader - No template file: load BAM {self.file} (read)")
-            self.bam = pysam.AlignmentFile(self.file, mode="rb")
+            logger.info(f"Loader - No template file: load BAM {self.bam_path} (read)")
+            super().check_file_exists(path=bam_path)
+            bam = pysam.AlignmentFile(self.bam_path, mode="rb")
+
+        return bam
 
     def run_sampling(
         self,
@@ -54,7 +57,7 @@ class Loader:
         main_seed: int,
         out_bam: str,
         hlala_mode: bool = False,
-        hlala_dir: Optional[str] = "HLA-LA/",
+        hlala_dir: str = "HLA-LA/",
     ) -> None:
         """Sampling method for both regular and HLA*LA modes."""
         logger.info(f"Loader - Begin {'HLA*LA' if hlala_mode else 'regular'} sampling")
@@ -77,18 +80,20 @@ class Loader:
                 region_end + overhang,
             )
 
-            prg_contigs = self.get_prg_contigs()
-
-            prg_reads = self.get_prg_reads(contigs=prg_contigs)
+            prg_reads = self.get_prg_reads(contigs=self.get_prg_contigs())
             for r in prg_reads:
 
-                chr6_read = self.map_read_to_chr6(read=r)
+                r_chr6 = self.map_read_to_chr6(read=r)
+                read_coords = (
+                    r_chr6.reference_start,
+                    r_chr6.reference_end,
+                )
 
                 if self.overlap(
-                    read_coords=(chr6_read.reference_start, chr6_read.reference_end),
+                    read_coords=read_coords,
                     int_coords=interval_range,
                 ):
-                    self.add_read_to_bucket(read=chr6_read)
+                    self.add_read_to_bucket(read=r_chr6)
 
         else:
             mapped_reads = self.get_mapped_reads(start=region_start, end=region_end)
@@ -98,10 +103,12 @@ class Loader:
         self.sample_reads_from_buckets()
         self.write_reads()
 
-    def setup_mapback(self, hlala_dir: Optional[str]) -> None:
+    def setup_mapback(self, hlala_dir: str) -> None:
         """
         Set up HLA*LA-specific variables
         """
+
+        self.prg_coords_cache = {}
 
         # GENCODE v48 (non-lncRNA ones selected)
         self.gene_maps = {
@@ -157,11 +164,12 @@ class Loader:
             "chr6": ("chr6", 1, 33480577),
         }
 
+        sequences_path = (
+            Path(hlala_dir) / "graphs" / "PRG_MHC_GRCh38_withIMGT" / "sequences.txt"
+        )
+        super().check_file_exists(path=str(sequences_path))
         self.sequence_txt = pd.read_csv(
-            filepath_or_buffer=Path(hlala_dir)  # type: ignore
-            / "graphs"
-            / "PRG_MHC_GRCh38_withIMGT"
-            / "sequences.txt",
+            filepath_or_buffer=sequences_path,
             sep="\t",
             usecols=["Name", "FASTAID"],  # type: ignore
         )
@@ -178,7 +186,6 @@ class Loader:
         Generate a seed per interval provided
         """
         logger.info(f"Loader - Generate random seeds")
-
         np.random.seed(seed=main_seed)
         return np.random.randint(low=0, high=1_000_000, size=len(self.intervals))
 
@@ -196,9 +203,9 @@ class Loader:
         Yield all mapped reads within limits of BED file
         """
         logger.info("Loader - Fetch mapped reads from supplied region")
-
+        contig = self.normalize_contig(contig=self.intervals.contig)
         for r in self.bam.fetch(
-            contig=self.normalize_contig(contig=self.intervals.contig),
+            contig=contig,
             start=start,
             end=end,
         ):
@@ -247,7 +254,7 @@ class Loader:
         """
         logger.info(f"Loader - Write reads to file")
 
-        out_bam = Loader(file=self.out_bam, template=self.bam)
+        out_bam = Loader(bam_path=self.out_bam, template=self.bam)
         for r in self.reads:
             out_bam.bam.write(read=r)
 
@@ -306,9 +313,9 @@ class Loader:
                 np.random.seed(seed=seed)
                 self.reads.extend(np.random.choice(a=bucket, size=count, replace=False))
             except ValueError as e:
-                logger.info(f"Loader - No reads in bucket for interval:\n{e}")
+                logger.warning(f"Loader - No reads in bucket for interval:\n{e}")
 
-    def map_read_to_chr6(self, read):
+    def map_read_to_chr6(self, read: pysam.AlignedSegment) -> pysam.AlignedSegment:
         """
         Map provided PRG-mapped read back to chr6 and corresponding coordinates
         """
@@ -336,7 +343,9 @@ class Loader:
             sam_dict=r_dict, header=self.add_chr6_to_header()
         )
 
-    def get_prg_reads(self, contigs):
+    def get_prg_reads(
+        self, contigs: list[str]
+    ) -> Generator[pysam.AlignedSegment, None, None]:
         """
         Yield reads mapped to PRG contigs
         """
@@ -431,17 +440,18 @@ class Loader:
             b = np.random.choice(a=candidate_buckets)
             self.buckets[b].append(read)
 
-    @staticmethod
-    def check_file_exists(path: str) -> None:
+    def fetch(self) -> Generator[pysam.AlignedSegment, None, None]:
         """
-        Check if a file exists at the given path. Raise FileNotFoundError if not.
-        Args:
-            path: Path to the file.
+        Yield all mapped reads within limits of BED file
         """
-        p = Path(path)
-        if not p.exists():
-            logger.error(f"File not found: {p}")
-            raise FileNotFoundError(f"File not found: {p}")
+        logger.info("Loader - Fetch mapped reads from supplied region")
+        yield from self.bam.fetch()
+
+    def get_reference_name(self, reference_id: int) -> str:
+        """
+        Get reference name from reference ID
+        """
+        return self.bam.get_reference_name(reference_id)
 
     def close(self) -> None:
         """
