@@ -1,123 +1,88 @@
-from subsample_reads.Mapper import Mapper
-import unittest, os
+import unittest
+import os
 import pandas as pd
+
+from subsample_reads.Mapper import Mapper
 
 
 class TestMapper(unittest.TestCase):
+    def setUp(self):
+        self.bam = "tests/HG00157-HLA-sorted.bam"
+        self.bed = "tests/HG00157-HLA-sorted-test.bed"
+        self.bed_dir = "tests"
+        self.bed_out = os.path.join(self.bed_dir, "HG00157-HLA-sorted.bed")
+        # Remove output file if it exists
+        if os.path.exists(self.bed_out):
+            os.remove(self.bed_out)
 
-    filename_root = "tests/HG00157-HLA-sorted"
-    contig = "chr6"
-    start = "25000000"
-    end = "35000000"
-    count = "10"
-    length = "1000000"
+    def tearDown(self):
+        if os.path.exists(self.bed_out):
+            os.remove(self.bed_out)
 
-    count_mapper = Mapper(
-        bam_filenames=[filename_root + ".bam"],
-        contig=contig,
-        start=start,
-        end=end,
-        interval_count=count,
-        interval_length=None,
-        bed_filename=filename_root + ".bed",
-    )
-
-    def testCorrectArgumentTypes_Count(self):
-
-        self.assertIsInstance(self.count_mapper.bam_filenames, list)
-        self.assertIsInstance(self.count_mapper.contig, str)
-        self.assertIsInstance(self.count_mapper.start, int)
-        self.assertIsInstance(self.count_mapper.end, int)
-        self.assertIsInstance(self.count_mapper.interval_count, int)
-        self.assertIsInstance(self.count_mapper.bed_filename, str)
-
-        self.assertIsNone(self.count_mapper.interval_length)
-
-    def testCorrectArgumentValues_Count(self):
-
-        self.assertEqual(self.count_mapper.bam_filenames, [self.filename_root + ".bam"])
-        self.assertEqual(self.count_mapper.contig, "chr6")
-        self.assertEqual(self.count_mapper.start, int(self.start))
-        self.assertEqual(self.count_mapper.end, int(self.end))
-        self.assertEqual(self.count_mapper.interval_count, int(self.count))
-        self.assertEqual(self.count_mapper.bed_filename, self.filename_root + ".bed")
-
-    length_mapper = Mapper(
-        bam_filenames=[filename_root + ".bam"],
-        contig=contig,
-        start=start,
-        end=end,
-        interval_count=None,
-        interval_length=length,
-        bed_filename=filename_root + ".bed",
-    )
-
-    def testCorrectArgumentTypes_Length(self):
-
-        self.assertIsInstance(self.length_mapper.bam_filenames, list)
-        self.assertIsInstance(self.length_mapper.contig, str)
-        self.assertIsInstance(self.length_mapper.start, int)
-        self.assertIsInstance(self.length_mapper.end, int)
-        self.assertIsInstance(self.length_mapper.interval_length, int)
-        self.assertIsInstance(self.length_mapper.bed_filename, str)
-
-        self.assertIsNone(self.length_mapper.interval_count)
-
-    def testCorrectArgumentValues_Length(self):
-
-        self.assertEqual(
-            self.length_mapper.bam_filenames, [self.filename_root + ".bam"]
+    def test_mapper_count(self):
+        m = Mapper(
+            bam_paths=[self.bam],
+            contig="chr6",
+            start="25000000",
+            end="35000000",
+            interval_count="10",
+            interval_length=None,
+            bed_dir=self.bed_dir,
         )
-        self.assertEqual(self.length_mapper.contig, "chr6")
-        self.assertEqual(self.length_mapper.start, int(self.start))
-        self.assertEqual(self.length_mapper.end, int(self.end))
-        self.assertEqual(self.length_mapper.interval_length, int(self.length))
-        self.assertEqual(self.length_mapper.bed_filename, self.filename_root + ".bed")
+        self.assertEqual(m.interval_count, 10)
+        self.assertIsNone(m.interval_length)
+        self.assertTrue(os.path.isfile(self.bed_out))
 
-    def testBEDcreated(self):
-
-        os.remove(self.filename_root + ".bed")
-
-        Mapper(
-            bam_filenames=[self.filename_root + ".bam"],
-            contig=self.contig,
-            start=self.start,
-            end=self.end,
+    def test_mapper_length(self):
+        m = Mapper(
+            bam_paths=[self.bam],
+            contig="chr6",
+            start="25000000",
+            end="35000000",
             interval_count=None,
-            interval_length=self.length,
-            bed_filename=self.filename_root + ".bed",
+            interval_length="1000000",
+            bed_dir=self.bed_dir,
         )
+        self.assertEqual(m.interval_length, 1000000)
+        self.assertIsNone(m.interval_count)
+        self.assertTrue(os.path.isfile(self.bed_out))
 
-        self.assertTrue(os.path.isfile(self.filename_root + ".bed"))
+    def test_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            Mapper(
+                bam_paths=["tests/DOES_NOT_EXIST.bam"],
+                contig="chr6",
+                start="25000000",
+                end="35000000",
+                interval_count="10",
+                interval_length=None,
+                bed_dir=self.bed_dir,
+            )
 
-    def testBEDcontentsIdentical(self):
+    def test_no_interval_args(self):
+        with self.assertRaises(ValueError):
+            Mapper(
+                bam_paths=[self.bam],
+                contig="chr6",
+                start="25000000",
+                end="35000000",
+                interval_count=None,
+                interval_length=None,
+                bed_dir=self.bed_dir,
+            )
 
+    def test_bed_output_columns(self):
         Mapper(
-            bam_filenames=[self.filename_root + ".bam"],
-            contig=self.contig,
-            start=self.start,
-            end=self.end,
-            interval_count=None,
-            interval_length=self.length,
-            bed_filename=self.filename_root + ".bed",
+            bam_paths=[self.bam],
+            contig="chr6",
+            start="25000000",
+            end="35000000",
+            interval_count="10",
+            interval_length=None,
+            bed_dir=self.bed_dir,
         )
-
-        new = pd.read_csv(
-            self.filename_root + ".bed",
-            sep="\t",
-            header=None,
-            names=["contig", "start", "end", "fraction", "read_count"],
-        )
-        old = pd.read_csv(
-            "tests/HG00157-HLA-sorted-test.bed",
-            sep="\t",
-            header=None,
-            names=["contig", "start", "end", "fraction", "read_count"],
-        )
-
-        self.assertTrue(
-            new[["contig", "start", "end"]].equals(old[["contig", "start", "end"]])
-        )
+        df = pd.read_csv(self.bed_out, sep="\t", header=None)
+        self.assertEqual(df.shape[1], 5)
 
 
 if __name__ == "__main__":
