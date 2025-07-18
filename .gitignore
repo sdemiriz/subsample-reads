@@ -9,7 +9,6 @@ venv/
 *fai
 *ipynb
 *txt
-!requirements.txt
 *gz
 *sh
 *csv
@@ -23,3 +22,7 @@ results/
 *fna
 HLA-LA/
 log/
+
+!requirements.txt
+!tests/*.bam
+!tests/*.bam.bai
