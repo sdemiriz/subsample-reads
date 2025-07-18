@@ -155,3 +155,11 @@ python -m subsample_reads plot \
 ## Logging
 
 Timestamped log files are written to the `log/` directory for each run.
+
+## Testing
+
+Run the `unittest` suite via 
+
+```
+python -m unittest
+```
