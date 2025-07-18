@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
-from subsample_reads import Plotter, Loader, Mapper, Comparator
-from logging import getLogger, basicConfig, INFO
-from datetime import datetime as dt
 import argparse
-import sys
 import os
+import sys
+from datetime import datetime as dt
+from logging import INFO, basicConfig, getLogger
+
+from subsample_reads import Plotter, Loader, Mapper, Comparator
 
 # Ensure log directory exists
 os.makedirs("log", exist_ok=True)

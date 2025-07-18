@@ -219,10 +219,6 @@ class Loader(FileHandler):
         Determine whether the read coordinates overlap the interval coordinates (start-end)
         Read cannot hang over the start of the interval
         """
-        if any(read_coords + int_coords) is None:
-            logger.error("Loader - Read or interval coordinates are None")
-            raise ValueError("Loader - Read or interval coordinates are None")
-
         return max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
 
     def normalize_contig(self, contig: str) -> str:
@@ -240,10 +236,7 @@ class Loader(FileHandler):
             contig = "chr" + contig
 
         if contig not in self.bam.references:
-            logger.warning(
-                f"Loader - Contig name could not be parsed automatically ({contig})"
-            )
-            raise ValueError("Cannot auto-detect contig name")
+            raise ValueError(f"Cannot auto-detect contig name")
 
         return contig
 

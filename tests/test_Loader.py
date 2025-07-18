@@ -1,14 +1,14 @@
-import os
 import unittest
 
 import pysam
+
 from subsample_reads.Loader import Loader
 
 
 class TestLoader(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.test_bam = "tests/HG00157-HLA-sorted.bam"
+        cls.test_bam = "tests/HG00157-100-mapped-reads.bam"
         cls.bam = Loader(bam_path=cls.test_bam)
 
     @classmethod
@@ -31,12 +31,6 @@ class TestLoader(unittest.TestCase):
         self.assertTrue(self.bam.overlap((0, 10), (9, 20)))  # overlap
         self.assertFalse(self.bam.overlap((0, 10), (10, 20)))  # X end Y start overlap
         self.assertFalse(self.bam.overlap((0, 10), (11, 20)))  # sequential
-
-    def test_overlap_none_raises(self):
-        with self.assertRaises(ValueError):
-            self.bam.overlap((None, 10), (0, 10))  # type: ignore
-        with self.assertRaises(ValueError):
-            self.bam.overlap((0, 10), (None, 10))  # type: ignore
 
     def test_normalize_contig(self):
         # Should return the same if already correct

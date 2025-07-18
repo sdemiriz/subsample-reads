@@ -15,5 +15,4 @@ class FileHandler:
         """
         p = Path(path)
         if not p.exists():
-            logger.error(f"FileHandler - File not found: {p}")
             raise FileNotFoundError(f"FileHandler - File not found: {p}")
