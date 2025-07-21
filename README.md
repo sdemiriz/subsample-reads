@@ -103,21 +103,21 @@ python -m subsample_reads hlala \
 
 ### 4. Comparison
 
-Compare two BAM files to check the back-mapping performance. Searches read names across the two BAM files and outputs before-and-after coordinates side by side.
+Compare two BAM files to check the back-mapping performance. Searches read names across the two BAM files and outputs before-and-after coordinates side by side. Performs a right join, keeping all read names from `bam_right`. Therefore, it is suggested to use the smaller of the two BAMs for this value.
 ```bash
 python -m subsample_reads compare [options]
 
 # Required
---bam1 BAM          : First BAM file.
---bam2 BAM          : Second BAM file.
+--bam_left BAM      : First BAM file.
+--bam_right BAM     : Second BAM file.
 --out FILE          : Output file for overlap information (tab-delimited).
 ```
 
 **Example:**
 ```bash
 python -m subsample_reads compare \
-  --bam1 sample1.bam \
-  --bam2 sample2.bam \
+  --bam_left sample1.bam \
+  --bam_right sample2.bam \
   --out overlap.tsv
 ```
 
