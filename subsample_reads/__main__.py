@@ -67,7 +67,7 @@ def hlala_mode(args):
 
 def compare_mode(args):
     """Compare two BAM files to see how many reads overlap with each other."""
-    Comparator(bam1_path=args.bam1, bam2_path=args.bam2, out=args.out)
+    Comparator(bam_left_path=args.bam_left, bam_right_path=args.bam_right, out=args.out)
 
 
 def plotter_mode(args):
@@ -187,10 +187,10 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     compare.add_argument(
-        "--bam1", required=True, help="Path to first BAM for the comparison."
+        "--bam_left", required=True, help="Path to first BAM for the comparison."
     )
     compare.add_argument(
-        "--bam2", required=True, help="Path to second BAM for the comparison."
+        "--bam_right", required=True, help="Path to second BAM for the comparison."
     )
     compare.add_argument(
         "--out", required=True, help="Output file for cross-mapping info."
@@ -227,7 +227,7 @@ def main():
         args.func(args)
     except Exception as e:
         logger.error(f"Main - Exception encountered. Details:\n{e}", exc_info=True)
-        sys.exit(1)
+        raise e
 
     logger.info("Main - End log\n")
 

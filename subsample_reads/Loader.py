@@ -1,14 +1,14 @@
-from typing import Optional, Generator
-from pathlib import Path
-import logging
 import os
+import logging
+from pathlib import Path
+from typing import Optional, Generator
 
-import pandas as pd
-import numpy as np
 import pysam
+import numpy as np
+import pandas as pd
 
-from subsample_reads.FileHandler import FileHandler
 from subsample_reads.Intervals import Intervals
+from subsample_reads.FileHandler import FileHandler
 
 logger = logging.getLogger(__name__)
 
@@ -433,12 +433,19 @@ class Loader(FileHandler):
             b = np.random.choice(a=candidate_buckets)
             self.buckets[b].append(read)
 
-    def fetch(self) -> Generator[pysam.AlignedSegment, None, None]:
+    def fetch(
+        self, names: Optional[list[str]] = None
+    ) -> Generator[pysam.AlignedSegment, None, None]:
         """
         Yield all mapped reads within limits of BED file
         """
         logger.info("Loader - Fetch mapped reads from supplied region")
-        yield from self.bam.fetch()
+        if names is not None:
+            for read in self.bam.fetch():
+                if read.query_name in names:
+                    yield read
+        else:
+            yield from self.bam.fetch()
 
     def get_reference_name(self, reference_id: int) -> str:
         """

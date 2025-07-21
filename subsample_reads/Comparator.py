@@ -1,57 +1,100 @@
-from subsample_reads.Loader import Loader
 from logging import info
+
+import pysam
 import pandas as pd
+
+from subsample_reads.Loader import Loader
 
 
 class Comparator:
 
-    def __init__(self, bam1_path: str, bam2_path: str, out: str) -> None:
+    def __init__(self, bam_left_path: str, bam_right_path: str, out: str) -> None:
         """ """
-        info(f"Comparator - Initialize Comparator")
+        info(
+            f"Comparator - Initialize Comparator with {bam_left_path} and {bam_right_path}"
+        )
 
-        bam1 = Loader(bam1_path)
-        bam2 = Loader(bam2_path)
+        self.fields_of_interest = [
+            "query_name",
+            "ref_name",
+            "ref_start",
+            "ref_end",
+            "next_ref_name",
+            "next_ref_start",
+            "is_unmapped",
+            # "mapping_quality",
+            # "is_read1",
+            # "is_read2",
+            # "is_proper_pair",
+            # "mate_is_unmapped",
+            # "is_reverse",
+            # "mate_is_reverse",
+            # "is_secondary",
+            # "is_supplementary",
+            # "is_duplicate",
+            # "flag",
+            # "template_length",
+            # "query_length",
+            # "query_sequence",
+            # "query_qualities",
+            # "cigarstring",
+        ]
+
+        bam_left = Loader(bam_left_path)
+        bam_right = Loader(bam_right_path)
 
         # Get all query_names from the smaller BAM
-        bam2_query_names = set()
-        for read in self.bam3.fetch():
-            bam2_query_names.add(read.query_name)
-        # If bam2 is smaller, swap the logic
+        bam_right_query_names = set[str]()
+        for read in bam_right.fetch():
+            bam_right_query_names.add(read.query_name)  # type: ignore
+        bam_right_query_names = list(bam_right_query_names)
 
-        # Build DataFrame for bam2, filtering by query_name
-        bam1_data = []
-        for read in self.bam1.fetch():
-            if read.query_name in bam2_query_names:
-                bam1_data.append(self._extract_read_info(read, self.bam1))
-        bam1_df = pd.DataFrame.from_records(bam1_data)
+        info(
+            f"Comparator - {len(bam_right_query_names)} query names in {bam_right_path}"
+        )
 
-        # Build DataFrame for bam1 (all, or filter as well)
-        bam2_data = []
-        for read in self.bam2.fetch():
-            if read.query_name in bam1_df['query_name'].values:
-                bam2_data.append(self._extract_read_info(read, self.bam2))
-        bam2_df = pd.DataFrame.from_records(bam2_data)
+        bam_left_df = self.get_matching_reads(bam_left)
 
-        info(f"Comparator - Load {bam1_path} and {bam2_path}")
+        info(
+            f"Comparator - Found {len(bam_left_df)}/{len(bam_right_query_names)} reads in {bam_left_path}"
+        )
 
-        bam1_df = self.reads_to_df(bam=bam1)
-        bam2_df = self.reads_to_df(bam=bam2)
+        bam_right_df = self.get_matching_reads(bam_right)
+
+        info(
+            f"Comparator - Found {len(bam_right_df)}/{len(bam_right_query_names)} reads in {bam_right_path}"
+        )
 
         info(f"Comparator - Inner join BAMs")
 
         merged_df = pd.merge(
-            left=bam1_df,
-            right=bam2_df,
-            how="inner",
+            left=bam_left_df,
+            right=bam_right_df,
+            how="right",
             on="query_name",
-            suffixes=["_1", "_2"],
+            suffixes=("_l", "_r"),  # type: ignore
         )
 
-        merged_df["start_diff"] = merged_df["ref_start_1"] - merged_df["ref_start_2"]
-        merged_df["end_diff"] = merged_df["ref_end_1"] - merged_df["ref_end_2"]
+        merged_df["start_diff"] = merged_df["ref_start_l"] - merged_df["ref_start_r"]
+        merged_df["end_diff"] = merged_df["ref_end_l"] - merged_df["ref_end_r"]
 
         info(f"Comparator - Write to {out}")
         merged_df.to_csv(out, sep="\t", index=False)
+
+    def get_matching_reads(self, bam: Loader) -> pd.DataFrame:
+        """
+        Get the matching reads from the two BAM files
+        """
+        data = []
+        for read in bam.fetch():
+            data.append(self.get_fields_of_interest(read))
+        return pd.DataFrame.from_records(data)
+
+    def get_fields_of_interest(self, read: pysam.AlignedSegment) -> dict[str, Any]:
+        """
+        Get the fields of interest from the read
+        """
+        return {k: v for k, v in read.to_dict().items() if k in self.fields_of_interest}
 
     def reads_to_df(self, bam: Loader) -> pd.DataFrame:
         """
