@@ -262,7 +262,11 @@ class Loader(FileHandler):
         if cache_key in self._overlap_cache:
             return self._overlap_cache[cache_key]
 
-        result = max(read_coords[0], int_coords[0]) < min(read_coords[1], int_coords[1])
+        read_start, read_end = read_coords
+        int_start, int_end = int_coords
+
+        result = max(read_start, int_start) < min(read_end, int_end)
+
         self._overlap_cache[cache_key] = result
         return result
 
