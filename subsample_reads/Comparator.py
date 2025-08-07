@@ -86,66 +86,66 @@ class Comparator:
 
     def get_matching_reads(self, bam: Loader) -> pd.DataFrame:
         """
-        Get the matching reads from the two BAM files
+        Get the matching reads from a BAM file
         """
         data = []
         for read in bam.fetch():
             data.append(self.get_fields_of_interest(read))
         return pd.DataFrame.from_records(data)
 
-    def get_fields_of_interest(self, read: pysam.AlignedSegment) -> dict[str, Any]:
+    def get_fields_of_interest(self, read: pysam.AlignedSegment) -> dict:
         """
         Get the fields of interest from the read
         """
         return {k: v for k, v in read.to_dict().items() if k in self.fields_of_interest}
 
-    def reads_to_df(self, bam: Loader) -> pd.DataFrame:
-        """
-        Read contents from loaded BAM file into Pandas DataFrame
-        """
-        read_data = []
+    # def reads_to_df(self, bam: Loader) -> pd.DataFrame:
+    #     """
+    #     Read contents from loaded BAM file into Pandas DataFrame
+    #     """
+    #     read_data = []
 
-        # Get all read contents
-        for read in bam.fetch():
-            read_info = {
-                "query_name": read.query_name,
-                "ref_name": (
-                    bam.get_reference_name(read.reference_id)
-                    if read.reference_id != -1
-                    else None
-                ),
-                "ref_start": read.reference_start,
-                "ref_end": read.reference_end,
-                "next_ref_name": (
-                    bam.get_reference_name(read.next_reference_id)
-                    if read.next_reference_id != -1
-                    else None
-                ),
-                "next_ref_start": read.next_reference_start,
-                "is_unmapped": read.is_unmapped,
-                # "mapping_quality": read.mapping_quality,
-                # "is_read1": read.is_read1,
-                # "is_read2": read.is_read2,
-                # "is_proper_pair": read.is_proper_pair,
-                # "mate_is_unmapped": read.mate_is_unmapped,
-                # "is_reverse": read.is_reverse,
-                # "mate_is_reverse": read.mate_is_reverse,
-                # "is_secondary": read.is_secondary,
-                # "is_supplementary": read.is_supplementary,
-                # "is_duplicate": read.is_duplicate,
-                # "flag": read.flag,
-                # "template_length": read.template_length,
-                # "query_length": read.query_length,
-                # "query_sequence": read.query_sequence,
-                # "query_qualities": read.query_qualities,
-                # "cigarstring": read.cigarstring,
-            }
+    #     # Get all read contents
+    #     for read in bam.fetch():
+    #         read_info = {
+    #             "query_name": read.query_name,
+    #             "ref_name": (
+    #                 bam.get_reference_name(read.reference_id)
+    #                 if read.reference_id != -1
+    #                 else None
+    #             ),
+    #             "ref_start": read.reference_start,
+    #             "ref_end": read.reference_end,
+    #             "next_ref_name": (
+    #                 bam.get_reference_name(read.next_reference_id)
+    #                 if read.next_reference_id != -1
+    #                 else None
+    #             ),
+    #             "next_ref_start": read.next_reference_start,
+    #             "is_unmapped": read.is_unmapped,
+    #             # "mapping_quality": read.mapping_quality,
+    #             # "is_read1": read.is_read1,
+    #             # "is_read2": read.is_read2,
+    #             # "is_proper_pair": read.is_proper_pair,
+    #             # "mate_is_unmapped": read.mate_is_unmapped,
+    #             # "is_reverse": read.is_reverse,
+    #             # "mate_is_reverse": read.mate_is_reverse,
+    #             # "is_secondary": read.is_secondary,
+    #             # "is_supplementary": read.is_supplementary,
+    #             # "is_duplicate": read.is_duplicate,
+    #             # "flag": read.flag,
+    #             # "template_length": read.template_length,
+    #             # "query_length": read.query_length,
+    #             # "query_sequence": read.query_sequence,
+    #             # "query_qualities": read.query_qualities,
+    #             # "cigarstring": read.cigarstring,
+    #         }
 
-        # Get tag values
-        for tag, value in read.get_tags():
-            read_info[tag] = value
+    #     # Get tag values
+    #     for tag, value in read.get_tags():
+    #         read_info[tag] = value
 
-        # Append to list before emitting DataFrame
-        read_data.append(read_info)
+    #     # Append to list before emitting DataFrame
+    #     read_data.append(read_info)
 
-        return pd.DataFrame.from_dict(read_data)
+    #     return pd.DataFrame.from_dict(read_data)
