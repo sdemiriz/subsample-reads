@@ -72,7 +72,7 @@ class Comparator:
             left=bam_left_df,
             right=bam_right_df,
             how="right",
-            on="query_name",
+            on="name",
             suffixes=("_l", "_r"),  # type: ignore
         )
 
