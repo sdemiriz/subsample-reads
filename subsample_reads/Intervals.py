@@ -53,7 +53,7 @@ class Intervals(FileHandler):
         """
         Gets contig from first BED file (assumes BED files have been validated)
         """
-        info(f"Intervals - Set contig value {self.contig}")
+        info(f"Intervals - Set contig value")
         return str(self.bed["contig"][0])
 
     def get_bed(self, bed_path: str) -> pd.DataFrame:
