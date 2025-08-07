@@ -38,30 +38,27 @@ def mapper_mode(args):
 def sample_mode(args):
     """Sample provided BAM file based on regions in BED file."""
     in_bam = Loader(bam_path=args.in_bam)
-    in_bam.run_sampling(
-        bed_dir=args.bed_dir,
-        bed_file=args.bed,
-        main_seed=args.seed,
-        out_bam=args.out_bam,
-    )
-    in_bam.close()
 
-
-def hlala_mode(args):
-    """Sample HLALA outputs based on PRG construction data."""
-    in_bam = Loader(
-        bam_path=os.path.join(
-            args.hlala_dir, "working", args.sampleID, "remapped_with_a.bam"
+    # Determine if we're in HLA-LA mode based on --prg flag
+    if args.prg:
+        # HLA-LA mode: use PRG-specific sampling
+        in_bam.run_sampling(
+            hlala_mode=True,
+            hlala_dir=os.path.dirname(args.in_bam),
+            bed_dir=args.bed_dir,
+            bed_file=args.bed,
+            main_seed=args.seed,
+            out_bam=args.out_bam,
         )
-    )
-    in_bam.run_sampling(
-        hlala_mode=True,
-        hlala_dir=args.hlala_dir,
-        bed_dir=args.bed_dir,
-        bed_file=args.bed,
-        main_seed=args.seed,
-        out_bam=args.out_bam,
-    )
+    else:
+        # Regular mode: use standard sampling
+        in_bam.run_sampling(
+            bed_dir=args.bed_dir,
+            bed_file=args.bed,
+            main_seed=args.seed,
+            out_bam=args.out_bam,
+        )
+
     in_bam.close()
 
 
@@ -138,7 +135,7 @@ def main():
     # Sampling
     sample = subparsers.add_parser(
         "sample",
-        help="Apply generated read depth distribution(s) from selected BED file(s) to supplied BAM file.",
+        help="Apply generated read depth distribution(s) from selected BED file(s) to supplied BAM file. Use --prg flag for HLA-LA PRG back-mapping.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sample.add_argument("--in-bam", required=True, help="Target BAM file to subset.")
@@ -153,32 +150,10 @@ def main():
         "--seed", default=42, type=int, help="Seed for random subsampling."
     )
     sample.add_argument("--out-bam", default="out.bam", help="Output BAM file.")
+    sample.add_argument(
+        "--prg", action="store_true", help="Enable HLA-LA PRG mode for sampling."
+    )
     sample.set_defaults(func=sample_mode)
-
-    # HLA-LA specific sampling
-    hlala = subparsers.add_parser(
-        "hlala",
-        help="Apply generated read depth distribution(s) from selected BED file(s) to HLA-LA output.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    hlala.add_argument(
-        "--hlala-dir", default="HLA-LA/", help="Path to HLA-LA setup directory."
-    )
-    hlala.add_argument(
-        "--sampleID", required=True, help="HLA-LA processed sample to subsample from."
-    )
-    bed_selection = hlala.add_mutually_exclusive_group()
-    bed_selection.add_argument(
-        "--bed-dir", default="bed/", help="Directory to fetch BED files from."
-    )
-    bed_selection.add_argument(
-        "--bed", default=None, help="Specify one BED file to sample from."
-    )
-    hlala.add_argument(
-        "--seed", default=42, type=int, help="Seed for random subsampling."
-    )
-    hlala.add_argument("--out-bam", default="out.bam", help="Output BAM file.")
-    hlala.set_defaults(func=hlala_mode)
 
     # Compare
     compare = subparsers.add_parser(
