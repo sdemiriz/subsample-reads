@@ -15,13 +15,13 @@ class Comparator:
         )
 
         self.fields_of_interest = [
-            "query_name",
+            "name",
             "ref_name",
-            "ref_start",
-            "ref_end",
+            "ref_pos",
+            "length",
             "next_ref_name",
-            "next_ref_start",
-            "is_unmapped",
+            "next_ref_pos",
+            # "is_unmapped",
             # "mapping_quality",
             # "is_read1",
             # "is_read2",
@@ -34,9 +34,9 @@ class Comparator:
             # "is_duplicate",
             # "flag",
             # "template_length",
-            # "query_length",
-            # "query_sequence",
-            # "query_qualities",
+            "query_length",
+            "query_sequence",
+            "query_qualities",
             # "cigarstring",
         ]
 
