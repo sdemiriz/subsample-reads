@@ -183,10 +183,12 @@ class Mapper(FileHandler):
         """
         logger.info(f"Mapper - Populate read counts in BED files")
         for bed, bam in zip(beds, bams):
-            bed["read_count"] = [
-                bam.bam.count(contig=contig, start=row[1], end=row[2])
-                for row in bed.itertuples(index=False)
-            ]
+            # Use vectorized operations where possible
+            read_counts = []
+            for row in bed.itertuples(index=False):
+                count = bam.bam.count(contig=contig, start=row[1], end=row[2])
+                read_counts.append(count)
+            bed["read_count"] = read_counts
 
     def populate_fractions(
         self, contig: str, beds: list[pd.DataFrame], bams: list[Loader]
