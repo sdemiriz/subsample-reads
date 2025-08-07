@@ -13,7 +13,7 @@ os.makedirs("log", exist_ok=True)
 
 # Configure logging
 basicConfig(
-    filename=dt.now().strftime("log/%H%M%S_%d%m%Y.txt"),
+    filename=dt.now().strftime("log/%d%m_%H%M%S.txt"),
     level=INFO,
     format="{asctime} [{levelname}]: {message}",
     style="{",
