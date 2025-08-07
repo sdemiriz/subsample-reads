@@ -76,8 +76,10 @@ class Comparator:
             suffixes=("_l", "_r"),  # type: ignore
         )
 
-        merged_df["start_diff"] = merged_df["ref_start_l"] - merged_df["ref_start_r"]
-        merged_df["end_diff"] = merged_df["ref_end_l"] - merged_df["ref_end_r"]
+        # merged_df["pos_diff"] = int(merged_df["ref_pos_l"]) - int(
+        #     merged_df["ref_pos_r"]
+        # )
+        # merged_df["end_diff"] = merged_df["ref_end_l"] - merged_df["ref_end_r"]
 
         info(f"Comparator - Write to {out}")
         merged_df.to_csv(out, sep="\t", index=False)
