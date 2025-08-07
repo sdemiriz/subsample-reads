@@ -43,11 +43,12 @@ class Comparator:
         bam_left = Loader(bam_left_path)
         bam_right = Loader(bam_right_path)
 
-        # Get all query_names from the smaller BAM
-        bam_right_query_names = set[str]()
+        # Get all query_names from the smaller BAM - use more efficient set operations
+        bam_right_query_names = set()
         for read in bam_right.fetch():
-            bam_right_query_names.add(read.query_name)  # type: ignore
-        bam_right_query_names = list(bam_right_query_names)
+            bam_right_query_names.add(read.query_name)
+        # Convert to list only if needed for other operations
+        bam_right_query_names_list = list(bam_right_query_names)
 
         info(
             f"Comparator - {len(bam_right_query_names)} query names in {bam_right_path}"
