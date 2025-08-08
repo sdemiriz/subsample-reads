@@ -34,7 +34,11 @@ class Loader(FileHandler):
         logger.info("Loader - Initialize")
 
         if template:
-            super().check_file_exists(path=template.filename)
+            # Convert bytes to string if necessary
+            template_filename = template.filename
+            if isinstance(template_filename, bytes):
+                template_filename = template_filename.decode("utf-8")
+            super().check_file_exists(path=template_filename)
         self.template = template
 
         self.bam_path = bam_path
@@ -54,7 +58,6 @@ class Loader(FileHandler):
             logger.info(
                 f"Loader - Template file supplied: load BAM {self.bam_path} (write)"
             )
-            super().check_file_exists(path=bam_path)
             bam = pysam.AlignmentFile(self.bam_path, mode="wb", template=self.template)
 
         else:
@@ -86,7 +89,6 @@ class Loader(FileHandler):
         main_seed: int,
         out_bam: str,
         hlala_mode: bool = False,
-        hlala_dir: str = "HLA-LA/",
     ) -> None:
         """Sampling method for both regular and HLA*LA modes."""
         logger.info(f"Loader - Begin {'HLA*LA' if hlala_mode else 'regular'} sampling")
@@ -101,7 +103,7 @@ class Loader(FileHandler):
 
         if hlala_mode:
             # HLA*LA-specific setup
-            self.setup_mapback(hlala_dir=hlala_dir)
+            self.setup_mapback()
 
             overhang = 1000
             interval_range = (
@@ -128,13 +130,12 @@ class Loader(FileHandler):
 
         else:
             mapped_reads = self.get_mapped_reads(start=region_start, end=region_end)
-            # Use batch processing for better performance
-        self.process_reads_in_batches(mapped_reads, batch_size=BATCH_SIZE)
+            self.process_reads_in_batches(mapped_reads, batch_size=BATCH_SIZE)
 
         self.sample_reads_from_buckets()
         self.write_reads()
 
-    def setup_mapback(self, hlala_dir: str) -> None:
+    def setup_mapback(self) -> None:
         """
         Set up HLA*LA-specific variables
         """
@@ -195,9 +196,8 @@ class Loader(FileHandler):
             "chr6": ("chr6", 1, 33480577),
         }
 
-        sequences_path = (
-            Path(hlala_dir) / "graphs" / "PRG_MHC_GRCh38_withIMGT" / "sequences.txt"
-        )
+        sequences_path = Path("HLA-LA/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt")
+
         super().check_file_exists(path=str(sequences_path))
         self.sequence_txt = pd.read_csv(
             filepath_or_buffer=sequences_path,
