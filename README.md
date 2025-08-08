@@ -60,14 +60,24 @@ python -m subsample_reads sample [options]
 --bed BED           : Specific BED file to use for sampling.
 --seed SEED         : Random seed for reproducibility (default: 42).
 --out-bam BAM       : Output BAM file (default: `out.bam`).
+--prg               : Enable HLA-LA PRG mode for sampling (back-maps PRG-mapped reads to chr6 coordinates).
 ```
 
-**Example:**
+**Example (Regular sampling):**
 ```bash
 python -m subsample_reads sample \
   --in-bam sample1.bam \
   --bed bed/sample1.bed \
   --out-bam subsampled.bam
+```
+
+**Example (HLA-LA PRG mode):**
+```bash
+python -m subsample_reads sample \
+  --prg \
+  --in-bam remapped_with_a.bam \
+  --bed bed/sample1.bed \
+  --out-bam prg-subsampled.bam
 ```
 
 ---
