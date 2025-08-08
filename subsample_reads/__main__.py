@@ -44,7 +44,6 @@ def sample_mode(args):
         # HLA-LA mode: use PRG-specific sampling
         in_bam.run_sampling(
             hlala_mode=True,
-            hlala_dir=os.path.dirname(args.in_bam),
             bed_dir=args.bed_dir,
             bed_file=args.bed,
             main_seed=args.seed,
