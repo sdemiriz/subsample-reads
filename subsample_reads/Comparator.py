@@ -17,9 +17,9 @@ class Comparator:
             "name",
             "ref_name",
             "ref_pos",
-            "length",
             "next_ref_name",
             "next_ref_pos",
+            "length",
         ]
 
         bam_left = Loader(bam_left_path)
@@ -38,39 +38,55 @@ class Comparator:
                 tmpfile.write(f"{line}\n")
             tmpfile.flush()
 
+            bam_left_str = pysam.view(str(bam_left_path), "-N", tmpfile.name)
             bam_right_str = pysam.view(str(bam_right_path), "-N", tmpfile.name)
-            bam_left_df = self.get_reads(bam=bam_left, read_names_str=bam_right_str)
-            bam_right_df = self.get_reads(bam=bam_right, read_names_str=bam_right_str)
+
+            bam_right_df = self.get_reads(bam_right_str)
+            bam_left_df = self.get_reads(bam_left_str)
 
         info(f"Comparator - Inner join BAMs")
 
-        suffixes = ("_l", "_r")
+        self.suffixes = ("_l", "_r")
         merged_df = pd.merge(
             left=bam_left_df,
             right=bam_right_df,
             how="right",
             on="name",
-            suffixes=suffixes,
+            suffixes=self.suffixes,
         )
+
+        merged_df = self.format_df(merged_df)
+        merged_df.to_csv(out, sep="\t", index=False)
+
+    def get_reads(self, read_names_str: str) -> pd.DataFrame:
+
+        info(f"Comparator - Get reads from BAM")
+
+        reads = []
+        for line in read_names_str.splitlines():
+            s = line.split("\t")
+            reads.append(
+                {
+                    "name": s[0],
+                    "ref_name": s[2],
+                    "ref_pos": s[3],
+                    "next_ref_name": s[6],
+                    "next_ref_pos": s[7],
+                    "length": s[8],
+                }
+            )
+        return pd.DataFrame.from_records(reads)
+
+    def format_df(self, df: pd.DataFrame) -> pd.DataFrame:
 
         column_order = ["name"]
         for col in [c for c in self.fields_of_interest if c != "name"]:
-            for suf in suffixes:
+            for suf in self.suffixes:
                 column_order.append(f"{col}{suf}")
 
-        merged_df = merged_df[column_order]
-        merged_df.to_csv(out, sep="\t", index=False)
+        df = df[column_order].sort_values(by="name")
 
-    def get_reads(self, bam: Loader, read_names_str: str) -> pd.DataFrame:
-
-        info(f"Comparator - Get reads from BAM")
-        reads = []
-        for line in read_names_str.splitlines():
-            reads.append(
-                pysam.AlignedSegment.fromstring(line, bam.bam.header).to_dict()
-            )
-
-        df = pd.DataFrame.from_records(reads)
-        df = df[self.fields_of_interest]
+        df.loc[df["next_ref_name_l"] == "=", "next_ref_name_l"] = df["ref_name_l"]
+        df.loc[df["next_ref_name_r"] == "=", "next_ref_name_r"] = df["ref_name_r"]
 
         return df
