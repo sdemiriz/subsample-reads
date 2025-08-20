@@ -84,13 +84,14 @@ python -m subsample_reads sample \
 
 ### 3. HLA*LA-specific Sampling
 
-Subsample HLA*LA output BAMs (`remapped_with_a.bam`) using PRG-mapped reads and a BED file. Uses PRG to chr6 back-mapping to determine pre-remapping read coordinates.
+First, map back to chr6 HLA*LA PRG-mapped reads and a BED file, then subsample as normal.
 ```bash
 python -m subsample_reads hlala [options]
 
 # Required
 --hlala-dir DIR     : Path to HLA*LA setup directory (default: `HLA-LA/`).
 --sampleID ID       : HLA*LA processed sample ID.
+--prg VERSION       : GRCh38 or GRCh37 values supported.
 
 # Optional
 --bed-dir DIR       : Directory to fetch BED files from (default: `bed/`).
