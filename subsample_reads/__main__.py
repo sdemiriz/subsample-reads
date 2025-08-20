@@ -6,7 +6,10 @@ import sys
 from datetime import datetime as dt
 from logging import INFO, basicConfig, getLogger
 
-from subsample_reads import Plotter, Loader, Mapper, Comparator
+from subsample_reads.Plotter import Plotter
+from subsample_reads.Loader import Loader
+from subsample_reads.Mapper import Mapper
+from subsample_reads.Comparator import Comparator
 
 # Ensure log directory exists
 os.makedirs("log", exist_ok=True)
@@ -41,17 +44,19 @@ def sample_mode(args):
 
     # Determine if we're in HLA-LA mode based on --prg flag
     if args.prg:
-        # HLA-LA mode: use PRG-specific sampling
+        # HLA-LA mode: use PRG-specific sampling with specified genome build
         in_bam.run_sampling(
             hlala_mode=True,
             bed_dir=args.bed_dir,
             bed_file=args.bed,
             main_seed=args.seed,
             out_bam=args.out_bam,
+            genome_build=args.prg,
         )
     else:
         # Regular mode: use standard sampling
         in_bam.run_sampling(
+            hlala_mode=False,
             bed_dir=args.bed_dir,
             bed_file=args.bed,
             main_seed=args.seed,
@@ -150,7 +155,9 @@ def main():
     )
     sample.add_argument("--out-bam", default="out.bam", help="Output BAM file.")
     sample.add_argument(
-        "--prg", action="store_true", help="Enable HLA-LA PRG mode for sampling."
+        "--prg",
+        choices=["GRCh37", "GRCh38"],
+        help="Enable HLA-LA PRG mode for sampling with specified genome build (GRCh37 or GRCh38).",
     )
     sample.set_defaults(func=sample_mode)
 
