@@ -44,8 +44,6 @@ class Plotter(FileHandler):
         self.bams = {"in": self.in_bam, "map": self.map_bam, "out": self.sub_bam}
 
         self.colormap = {"in": "#648FFF", "map": "#DC267F", "out": "#FFB000"}
-
-        super().check_file_exists(path=out_plt)
         self.out_plt = out_plt
 
         logger.info("Plotter - Complete initialization")
