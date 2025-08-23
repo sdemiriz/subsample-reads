@@ -168,10 +168,10 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     compare.add_argument(
-        "--bam_left", required=True, help="Path to first BAM for the comparison."
+        "--bam-left", required=True, help="Path to first BAM for the comparison."
     )
     compare.add_argument(
-        "--bam_right", required=True, help="Path to second BAM for the comparison."
+        "--bam-right", required=True, help="Path to second BAM for the comparison."
     )
     compare.add_argument(
         "--out", required=True, help="Output file for cross-mapping info."
