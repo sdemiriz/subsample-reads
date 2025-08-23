@@ -1,7 +1,6 @@
 import os
 import tempfile
 import logging
-from pathlib import Path
 from typing import Optional, Generator
 
 import pysam
@@ -30,6 +29,7 @@ class Loader(FileHandler):
         logger.info("Loader - Initialize")
         self.SEQUENCES = "HLA-LA/graphs/PRG_MHC_GRCh38_withIMGT/sequences.txt"
 
+        # Set up paths for BAM file initialization
         self.bam_path = bam_path
         self.template = template
         self.bam = self.load_bam(
@@ -51,6 +51,8 @@ class Loader(FileHandler):
         """
         Open in "w" mode if a template has been provided, otherwise open in "r" mode
         """
+
+        # If a template has been provided, open in write mode. Header being provided overrides template
         if template:
             logger.info(f"Loader - Template found: load BAM {bam_path} (writing)")
             if header:
@@ -58,6 +60,7 @@ class Loader(FileHandler):
             else:
                 bam = pysam.AlignmentFile(bam_path, mode="wb", template=template)
 
+        # If no template has been provided, open in read mode
         else:
             logger.info(f"Loader - No template: load BAM {self.bam_path} (reading)")
             bam = pysam.AlignmentFile(self.bam_path, mode="rb")
@@ -68,6 +71,8 @@ class Loader(FileHandler):
         """
         Index the BAM file if it is not already indexed
         """
+        # This throws an error for unindexed files so
+        # # we except and index the file at path instead
         try:
             bam.check_index()
         except ValueError as e:
@@ -85,26 +90,29 @@ class Loader(FileHandler):
     ) -> None:
         """Sampling method for both regular and HLA*LA modes."""
         logger.info(f"Loader - Begin {'HLA*LA ' if hlala_mode else ' '}sampling")
+
+        # Set up random seed and corresponding output BAM file
         self.main_seed = int(main_seed)
         self.write_out = out_bam
         self.out_bam = Loader(bam_path=out_bam, template=self.bam)
 
+        # Generate user-provided intervals, and a bucket and seed per interval
         self.intervals = self.get_intervals(bed_dir=bed_dir, bed_file=bed_file)
         self.seeds = self.get_interval_seeds(main_seed=self.main_seed)
         self.buckets = self.setup_buckets()
 
-        region_start, region_end = self.intervals.start, self.intervals.end
-
         # Pad the interval range by 1000bp to account for overhangs
         overhang = 1000
+        region_start, region_end = self.intervals.start, self.intervals.end
         interval_range = (
             region_start - overhang,
             region_end + overhang,
         )
 
+        # HLA-LA remaps reads to PRG contigs, here we map them back to chr6
         if hlala_mode:
 
-            header_with_chr6 = self.add_chr6_to_header(genome_build=genome_build)
+            header_with_chr6 = self.modify_header(genome_build=genome_build)
             self.out_bam = Loader(
                 bam_path=out_bam, template=self.bam, header=header_with_chr6
             )
@@ -112,9 +120,16 @@ class Loader(FileHandler):
 
             # PRG-mapped reads from HLA*LA need to be mapped back to chr6
             prg_reads = self.get_reads_from_contigs(contigs=self.get_prg_contigs())
+            prg_read_count = sum(
+                1 for _ in self.get_reads_from_contigs(contigs=self.get_prg_contigs())
+            )
 
+            count = 0
             for r in tqdm(
-                iterable=prg_reads, desc="Processed", unit=" PRG-mapped reads"
+                iterable=prg_reads,
+                desc="Processed",
+                unit=" PRG-mapped reads",
+                total=prg_read_count,
             ):
                 r_chr6 = self.map_read_to_chr6(read=r)
                 read_coords = (
@@ -126,12 +141,23 @@ class Loader(FileHandler):
                     read_coords=read_coords,
                     int_coords=interval_range,
                 ):
+                    count += 1
                     self.add_read_to_bucket(read=r_chr6, buckets=self.buckets)
 
+        # If we are not dealing with HLA-LA output, no need for mapback
         else:
-            for r in self.get_proper_reads(start=region_start, end=region_end):
+            proper_reads = self.get_proper_reads(start=region_start, end=region_end)
+            proper_read_count = sum(1 for _ in proper_reads)
+
+            for r in tqdm(
+                iterable=proper_reads,
+                desc="Processed",
+                unit=" mapped reads",
+                total=proper_read_count,
+            ):
                 self.add_read_to_bucket(read=r, buckets=self.buckets)
 
+        # After reads have been sorted into buckets, sample from them and write to file
         self.sample_reads_from_buckets()
         self.write_reads(bam=self.out_bam)
 
@@ -141,6 +167,7 @@ class Loader(FileHandler):
         """
 
         # https://github.com/DiltheyLab/ContigAnalysisScripts/blob/master/fasta2svg.py
+        # Define contig names and corresponding alt contig names
         self.contig_names = {
             "apd": "chr6_GL000250v2_alt",
             "cox": "chr6_GL000251v2_alt",
@@ -153,8 +180,10 @@ class Loader(FileHandler):
             "6": "chr6",
         }
 
+        # Coordinates change between genome builds so we handle the two main ones
         if genome_build == "GRCh38":
 
+            # Boundaries of HLA alleles
             # GENCODE v48 (non-lncRNA ones selected)
             self.gene_maps = {
                 "A": ("chr6", 29941260, 29949572),
@@ -185,6 +214,7 @@ class Loader(FileHandler):
                 "V": ("chr6", 29792234, 29793136),
             }
 
+            # How alt contigs map to chr6
             # From UCSC Browser
             self.alt_contig_maps = {
                 "chr6_GL000250v2_alt": ("chr6", 28734408, 33367716),
@@ -198,6 +228,7 @@ class Loader(FileHandler):
             }
 
         elif genome_build == "GRCh37":
+
             # Liftover from GRCh38 (DRB3/4 alt contigs not in GRCh37, kept as is)
             self.alt_contig_maps = {
                 "A": ("chr6", 29909037, 29917349),
@@ -240,6 +271,8 @@ class Loader(FileHandler):
                 "chr6": ("chr6", 60000, 33448354),
             }
 
+        # If HLA-LA is installed in the same directory, source the sequences.txt file to
+        # map PRG-mapped reads back to chr6
         super().check_file_exists(path=self.SEQUENCES)
         self.sequence_txt = pd.read_csv(
             filepath_or_buffer=self.SEQUENCES,
@@ -336,7 +369,6 @@ class Loader(FileHandler):
         logger.info(f"Loader - Sort and index output BAM file")
 
         with tempfile.NamedTemporaryFile(dir=".", delete=False) as temp_file:
-            temp_file.flush()
             pysam.sort(self.write_out, "-o", temp_file.name)
             os.rename(src=temp_file.name, dst=self.write_out)
         pysam.index(self.write_out)
@@ -389,41 +421,43 @@ class Loader(FileHandler):
         # Convert to dictionary to modify
         r_dict = read.to_dict()
 
-        if r_dict["ref_name"] == "6" or r_dict["next_ref_name"] == "6":
+        # Set up reference names and TIDs as variables
+        chr6_tid = len(self.out_bam.bam.header["SQ"]) - 1
+        ref_name, next_ref_name = r_dict["ref_name"], r_dict["next_ref_name"]
 
-            if r_dict["ref_name"] == "6":
-                r_dict["ref_name"] = "chr6"
+        other_contigs = []
+        # If read is already mapped to chr6, only switch the TID to chr6's index
+        if ref_name in ["6", "chr6"]:
+            r_dict["ref_name"] = "chr6"
+            r_dict["tid"] = chr6_tid
 
-            if r_dict["next_ref_name"] == "6":
-                r_dict["next_ref_name"] = "chr6"
+        # If read is mapped to PRG contig, convert coordinates to chr6
+        elif ref_name.startswith("PRG"):
 
-            return pysam.AlignedSegment.from_dict(
-                sam_dict=r_dict, header=self.out_bam.bam.header
+            # Convert read position to chr6 coordinate, and update TID
+            r_dict["ref_pos"] = self.out_bam.convert_to_chr6(
+                prg_contig=ref_name, prg_coord=r_dict["ref_pos"]
             )
+            r_dict["tid"] = chr6_tid
 
-        # Convert read position and next position to chr6 coordinates
-        r_dict["ref_pos"] = self.out_bam.convert_to_chr6(
-            prg_contig=r_dict["ref_name"], prg_coord=r_dict["ref_pos"]
-        )
-
-        if r_dict["next_ref_name"] == "=":
-            next_ref_name = r_dict["ref_name"]
         else:
-            next_ref_name = r_dict["next_ref_name"]
+            raise ValueError(f"Loader - Cannot map read {ref_name} to chr6")
 
-        r_dict["next_ref_pos"] = self.out_bam.convert_to_chr6(
-            prg_contig=next_ref_name, prg_coord=r_dict["next_ref_pos"]
-        )
+        if next_ref_name == "=":
+            r_dict["next_ref_name"] = ref_name
+            r_dict["next_tid"] = r_dict["tid"]
 
-        # Convert read contig and next contig to chr6 and its start coordinate
-        r_dict["ref_name"] = "chr6"
-        if r_dict["next_ref_name"] == "=":
-            r_dict["next_ref_name"] = r_dict["ref_name"]
+        elif next_ref_name in ["6", "chr6"]:
+            r_dict["next_ref_name"] = "chr6"
+            r_dict["next_tid"] = chr6_tid
 
-        # Update the reference ID (tid) to point to chr6 in the new header
-        new_tid = len(self.out_bam.bam.header["SQ"]) - 1
-        r_dict["tid"] = new_tid
-        r_dict["next_tid"] = new_tid
+        elif next_ref_name.startswith("PRG"):
+            r_dict["next_ref_pos"] = self.out_bam.convert_to_chr6(
+                prg_contig=next_ref_name, prg_coord=r_dict["next_ref_pos"]
+            )
+            r_dict["next_tid"] = chr6_tid
+        else:
+            logger.info(f"Loader - Cannot map contig {next_ref_name} to chr6")
 
         return pysam.AlignedSegment.from_dict(
             sam_dict=r_dict, header=self.out_bam.bam.header
@@ -437,18 +471,19 @@ class Loader(FileHandler):
         """
         for contig in contigs:
             for r in self.bam.fetch(contig=contig):
-                if r.is_mapped and r.is_paired and r.is_proper_pair:
+                if r.is_mapped:
                     yield r
 
     def get_prg_contigs(self) -> list[str]:
         """
         Get contigs with names that begin with PRG
         """
-        return [
+        contigs = [
             contig
             for contig in self.bam.references
             if contig.startswith(("PRG", "chr6", "6"))
         ]
+        return contigs
 
     def convert_to_chr6(self, prg_contig: str, prg_coord: int) -> str:
         """
@@ -478,11 +513,11 @@ class Loader(FileHandler):
 
         return (int(start), int(end))
 
-    def add_chr6_to_header(self, genome_build: str):
+    def modify_header(self, genome_build: str):
         """
         Add chr6 entry to the SQ section of the input BAM file for read back-mapping
         """
-        # Get dictionary representation of BAM header and add chr6 entry
+        # Get dictionary of BAM header and add chr6 entry, based on genome build
         header_sq = self.bam.header.to_dict()["SQ"]
         if genome_build == "GRCh38":
             header_sq.append({"SN": "chr6", "LN": 170805979})
@@ -493,7 +528,7 @@ class Loader(FileHandler):
         header = self.bam.header.to_dict()
         header["SQ"] = header_sq
 
-        # Return de-dictionarified header
+        # Return header as object
         return pysam.AlignmentHeader.from_dict(header_dict=header)
 
     def add_read_to_bucket(
@@ -502,6 +537,7 @@ class Loader(FileHandler):
         """
         Use IntervalTree to efficiently find overlapping intervals for read assignment
         """
+        # Empty list to store bucket indices instead of whole buckets
         candidate_bucket_indices = []
         for i, interval in enumerate(self.intervals.tree):
             if self.overlap(
@@ -510,30 +546,30 @@ class Loader(FileHandler):
             ):
                 candidate_bucket_indices.append(i)
 
-        # Randomly select one bucket to assign the read
+        # Randomly select one bucket (index) to assign the read
         np.random.seed(seed=self.main_seed)
         if candidate_bucket_indices:
             selected_bucket_index = np.random.choice(a=candidate_bucket_indices)
             buckets[selected_bucket_index].append(read)
 
-    # def fetch(
-    #     self, names: Optional[list[str]] = None
-    # ) -> Generator[pysam.AlignedSegment, None, None]:
-    #     """
-    #     Yield all mapped reads within limits of BED file
-    #     """
-    #     logger.info("Loader - Fetch mapped reads from supplied region")
-    #     if names is not None:
-    #         for read in self.bam.fetch():
-    #             yield read
-    #     else:
-    #         yield from self.bam.fetch()
+    def fetch(
+        self, names: Optional[list[str]] = None
+    ) -> Generator[pysam.AlignedSegment, None, None]:
+        """
+        Yield all mapped reads within limits of BED file
+        """
+        logger.info("Loader - Fetch mapped reads from supplied region")
+        if names is not None:
+            for read in self.bam.fetch():
+                yield read
+        else:
+            yield from self.bam.fetch()
 
-    # def get_reference_name(self, reference_id: int) -> str:
-    #     """
-    #     Get reference name from reference ID
-    #     """
-    #     return self.bam.get_reference_name(reference_id)
+    def get_reference_name(self, reference_id: int) -> str:
+        """
+        Get reference name from reference ID
+        """
+        return self.bam.get_reference_name(reference_id)
 
     def close(self) -> None:
         """
