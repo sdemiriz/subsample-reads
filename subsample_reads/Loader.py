@@ -86,7 +86,7 @@ class Loader(FileHandler):
         main_seed: int,
         out_bam: str,
         hlala_mode: bool,
-        genome_build: str,
+        genome_build: Optional[str] = None,
     ) -> None:
         """Sampling method for both regular and HLA*LA modes."""
         logger.info(f"Loader - Begin {'HLA*LA ' if hlala_mode else ' '}sampling")
@@ -124,7 +124,6 @@ class Loader(FileHandler):
                 1 for _ in self.get_reads_from_contigs(contigs=self.get_prg_contigs())
             )
 
-            count = 0
             for r in tqdm(
                 iterable=prg_reads,
                 desc="Processed",
@@ -141,19 +140,20 @@ class Loader(FileHandler):
                     read_coords=read_coords,
                     int_coords=interval_range,
                 ):
-                    count += 1
                     self.add_read_to_bucket(read=r_chr6, buckets=self.buckets)
 
         # If we are not dealing with HLA-LA output, no need for mapback
         else:
-            proper_reads = self.get_proper_reads(start=region_start, end=region_end)
-            proper_read_count = sum(1 for _ in proper_reads)
+            mapped_reads = self.get_mapped_reads(start=region_start, end=region_end)
+            mapped_read_count = sum(
+                1 for _ in self.get_mapped_reads(start=region_start, end=region_end)
+            )
 
             for r in tqdm(
-                iterable=proper_reads,
+                iterable=mapped_reads,
                 desc="Processed",
                 unit=" mapped reads",
-                total=proper_read_count,
+                total=mapped_read_count,
             ):
                 self.add_read_to_bucket(read=r, buckets=self.buckets)
 
@@ -230,7 +230,7 @@ class Loader(FileHandler):
         elif genome_build == "GRCh37":
 
             # Liftover from GRCh38 (DRB3/4 alt contigs not in GRCh37, kept as is)
-            self.alt_contig_maps = {
+            self.gene_maps = {
                 "A": ("chr6", 29909037, 29917349),
                 "B": ("chr6", 31321649, 31334844),
                 "C": ("chr6", 31236526, 31239907),
@@ -302,7 +302,7 @@ class Loader(FileHandler):
         logger.info("Loader - Set up an empty bucket per interval")
         return [[] for i in range(len(self.intervals))]
 
-    def get_proper_reads(
+    def get_mapped_reads(
         self, start: int, end: int
     ) -> Generator[pysam.AlignedSegment, None, None]:
         """
@@ -315,7 +315,7 @@ class Loader(FileHandler):
             start=start,
             end=end,
         ):
-            if r.is_mapped and r.is_paired and r.is_proper_pair:
+            if r.is_mapped:
                 yield r
 
     def overlap(
@@ -420,44 +420,57 @@ class Loader(FileHandler):
         """
         # Convert to dictionary to modify
         r_dict = read.to_dict()
+        print(f"r_dict: {r_dict['name']}")
+
+        old_ref_name = r_dict["ref_name"]
 
         # Set up reference names and TIDs as variables
         chr6_tid = len(self.out_bam.bam.header["SQ"]) - 1
-        ref_name, next_ref_name = r_dict["ref_name"], r_dict["next_ref_name"]
 
-        other_contigs = []
         # If read is already mapped to chr6, only switch the TID to chr6's index
-        if ref_name in ["6", "chr6"]:
+        if r_dict["ref_name"] in ["6", "chr6"]:
             r_dict["ref_name"] = "chr6"
             r_dict["tid"] = chr6_tid
 
         # If read is mapped to PRG contig, convert coordinates to chr6
-        elif ref_name.startswith("PRG"):
+        elif r_dict["ref_name"].startswith("PRG"):
+            print(f"ref_name: {r_dict['ref_name']}, ref_pos: {r_dict['ref_pos']}")
+            print(
+                f"next_ref_name: {r_dict['next_ref_name']}, next_ref_pos: {r_dict['next_ref_pos']}"
+            )
 
             # Convert read position to chr6 coordinate, and update TID
             r_dict["ref_pos"] = self.out_bam.convert_to_chr6(
-                prg_contig=ref_name, prg_coord=r_dict["ref_pos"]
+                prg_contig=r_dict["ref_name"], prg_coord=r_dict["ref_pos"]
             )
+            r_dict["ref_name"] = "chr6"
             r_dict["tid"] = chr6_tid
 
         else:
-            raise ValueError(f"Loader - Cannot map read {ref_name} to chr6")
+            raise ValueError(f"Loader - Cannot map contig {old_ref_name} to chr6")
 
-        if next_ref_name == "=":
-            r_dict["next_ref_name"] = ref_name
-            r_dict["next_tid"] = r_dict["tid"]
+        if r_dict["next_ref_name"] == "=":
+            r_dict["next_ref_name"] = old_ref_name
 
-        elif next_ref_name in ["6", "chr6"]:
+        if r_dict["next_ref_name"] in ["6", "chr6"]:
             r_dict["next_ref_name"] = "chr6"
             r_dict["next_tid"] = chr6_tid
 
-        elif next_ref_name.startswith("PRG"):
+        elif r_dict["next_ref_name"].startswith("PRG"):
             r_dict["next_ref_pos"] = self.out_bam.convert_to_chr6(
-                prg_contig=next_ref_name, prg_coord=r_dict["next_ref_pos"]
+                prg_contig=r_dict["next_ref_name"], prg_coord=r_dict["next_ref_pos"]
             )
+            r_dict["next_ref_name"] = "chr6"
             r_dict["next_tid"] = chr6_tid
+
         else:
-            logger.info(f"Loader - Cannot map contig {next_ref_name} to chr6")
+            raise ValueError(f"Loader - Cannot map contig {r_dict['ref_name']} to chr6")
+
+        print(f"ref_name: {r_dict['ref_name']}, ref_pos: {r_dict['ref_pos']}")
+        print(
+            f"next_ref_name: {r_dict['next_ref_name']}, next_ref_pos: {r_dict['next_ref_pos']}"
+        )
+        print()
 
         return pysam.AlignedSegment.from_dict(
             sam_dict=r_dict, header=self.out_bam.bam.header
@@ -501,7 +514,7 @@ class Loader(FileHandler):
             sequence_id = self.sequence_txt[prg_contig_mask]["Name"].values[0]
             gene_name = sequence_id.split("*")[0]
         except IndexError:
-            raise ValueError(f"Loader - Contig {prg_contig} not found in sequence_txt")
+            raise ValueError(f"Loader - Contig {prg_contig} not found in sequences.txt")
 
         # If PRG corresponds to HLA allele (with * notation in name)
         if gene_name in self.gene_maps:
@@ -519,10 +532,12 @@ class Loader(FileHandler):
         """
         # Get dictionary of BAM header and add chr6 entry, based on genome build
         header_sq = self.bam.header.to_dict()["SQ"]
-        if genome_build == "GRCh38":
-            header_sq.append({"SN": "chr6", "LN": 170805979})
-        elif genome_build == "GRCh37":
-            header_sq.append({"SN": "chr6", "LN": 171115067})
+
+        if "chr6" not in [h["SN"] for h in header_sq]:
+            if genome_build == "GRCh38":
+                header_sq.append({"SN": "chr6", "LN": 170805979})
+            elif genome_build == "GRCh37":
+                header_sq.append({"SN": "chr6", "LN": 171115067})
 
         # Replace the original header from BAM with modified one
         header = self.bam.header.to_dict()
