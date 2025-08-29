@@ -26,3 +26,4 @@ log/
 !requirements.txt
 !tests/*.bam
 !tests/*.bam.bai
+!examples/*.bed
