@@ -1,10 +1,12 @@
-from subsample_reads.FileHandler import FileHandler
-from subsample_reads.Intervals import Intervals
-from subsample_reads.Loader import Loader
-import matplotlib.pyplot as plt
-import pandas as pd
 import logging
-import pysam
+from typing import Optional
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from subsample_reads.Loader import Loader
+from subsample_reads.Intervals import Intervals
+from subsample_reads.FileHandler import FileHandler
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +15,9 @@ class Plotter(FileHandler):
 
     def __init__(
         self,
-        in_bam: str,
-        map_bam: str,
-        sub_bam: str,
-        bed_dir: str,
+        in_bam: Optional[str],
+        map_bam: Optional[str],
+        sub_bam: Optional[str],
         bed: str,
         out_plt: str,
     ) -> None:
@@ -33,17 +34,26 @@ class Plotter(FileHandler):
         """
         logger.info("Plotter - Initialize")
 
-        self.intervals = Intervals(bed_dir=bed_dir, bed_file=bed)
+        self.intervals = Intervals(bed_dir=None, bed_file=bed)
         self.boundaries = set(
             list(self.intervals.bed["start"]) + list(self.intervals.bed["end"])
         )
 
-        self.in_bam = Loader(bam_path=in_bam)
-        self.map_bam = Loader(bam_path=map_bam)
-        self.sub_bam = Loader(bam_path=sub_bam)
-        self.bams = {"in": self.in_bam, "map": self.map_bam, "out": self.sub_bam}
+        self.bams = {}
+        self.colormap = {}
+        if in_bam:
+            self.in_bam = Loader(bam_path=in_bam)
+            self.bams["in"] = self.in_bam
+            self.colormap["in"] = "#648FFF"
+        if map_bam:
+            self.map_bam = Loader(bam_path=map_bam)
+            self.bams["map"] = self.map_bam
+            self.colormap["map"] = "#DC267F"
+        if sub_bam:
+            self.sub_bam = Loader(bam_path=sub_bam)
+            self.bams["out"] = self.sub_bam
+            self.colormap["out"] = "#FFB000"
 
-        self.colormap = {"in": "#648FFF", "map": "#DC267F", "out": "#FFB000"}
         self.out_plt = out_plt
 
         logger.info("Plotter - Complete initialization")
@@ -136,9 +146,12 @@ class Plotter(FileHandler):
             f"Coverage across {self.intervals.contig}:{self.intervals.start}-{self.intervals.end}"
         )
         ax_line.set_xlabel("Chromosomal coordinate")
-        ax_line.set_ylabel("Depth of coverage")
-        ax_bar.set_ylabel("Read count")
-        ax_line.legend(loc="upper right")
+        ax_line.set_ylabel("Depth of coverage (line)")
+        ax_bar.set_ylabel("Read count (bar)", rotation=-90)
+
+        ax_line.margins(y=0.1)
+        ax_bar.margins(y=0.1)
+        ax_line.legend(loc="upper right", bbox_to_anchor=(1, 0.9))
 
     def add_fractions(self, ax):
         """Add fractions to represent distribution values to supplied axis"""
@@ -147,7 +160,7 @@ class Plotter(FileHandler):
         for row in self.intervals.bed.iterrows():
             ax.text(
                 x=(row[1]["start"] + row[1]["end"]) / 2,
-                y=-10,
+                y=ax.get_ylim()[1] * 0.99,
                 s=str(row[1]["fraction"])[:5],
                 ha="center",
                 color="black",
@@ -160,14 +173,18 @@ class Plotter(FileHandler):
         logger.info("Plotter - Add barplot")
 
         for row in self.intervals.bed.iterrows():
-            counts = self.get_counts(start=row[1]["start"], end=row[1]["end"])
+            start, end = row[1]["start"], row[1]["end"]
+            width = end - start
+            counts = self.get_counts(start=start, end=end)
 
-            for i, c in zip(range(3), self.colormap.values()):
+            bam_count = len(self.bams)
+            offset = 0.5 if bam_count % 2 == 0 else 1
+
+            for i, c in zip(range(bam_count), self.colormap.values()):
                 ax.bar(
-                    x=(row[1]["start"] + row[1]["end"]) / 2
-                    - (2 - (i + 1)) * (row[1]["end"] - row[1]["start"]) / 3,
+                    x=(start + end) / 2 - (offset - i) * width / bam_count,
                     height=counts[i],
-                    width=250,
+                    width=width / bam_count,
                     color=c,
                     alpha=0.5,
                     zorder=0,

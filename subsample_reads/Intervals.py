@@ -1,15 +1,17 @@
-from intervaltree import Interval, IntervalTree
-from pathlib import Path
 from logging import info
-import pandas as pd
+from pathlib import Path
+from typing import Optional
+
 import numpy as np
+import pandas as pd
+from intervaltree import Interval, IntervalTree
 
 from subsample_reads.FileHandler import FileHandler
 
 
 class Intervals(FileHandler):
 
-    def __init__(self, bed_dir: str, bed_file: str) -> None:
+    def __init__(self, bed_dir: Optional[str], bed_file: str) -> None:
         """
         Class constructor: read, validate BED and populate IntervalTree
         """
@@ -40,9 +42,10 @@ class Intervals(FileHandler):
             bed_path = bed_file
             info(f"Intervals - Received BED file path {bed_file}")
         elif bed_dir:
-            super().check_file_exists(path=bed_dir)
             bed_path = np.random.choice(a=list(Path(bed_dir).glob("*.bed")))  # type: ignore
             info(f"Intervals - Selected {bed_file} random BED file from {bed_dir}")
+        else:
+            raise ValueError("No BED file or directory provided")
 
         return bed_path
 
