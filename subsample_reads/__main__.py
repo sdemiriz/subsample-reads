@@ -86,6 +86,13 @@ def plotter_mode(args):
 
 def main():
     """Main CLI entry point for subsample-reads toolkit."""
+    # Log the command line invocation for reproducibility
+
+    command_line = sys.argv.copy()
+    command_line[0] = "python -m subsample_reads"
+    command_line = " ".join(command_line)
+    logger.info(f"Command: {command_line}")
+
     logger.info("Begin log")
 
     parser = argparse.ArgumentParser(
