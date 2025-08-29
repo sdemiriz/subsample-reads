@@ -2,6 +2,8 @@
 
 A Python toolkit for mapping, subsampling, comparing, and plotting BAM files using BED-defined intervals. Written for bioinformatics  high-throughput sequencing data and compatible with HLA*LA and its PRG-remapping approach.
 
+If you do not work with HLA-LA, you can safely ignore everything written here regarding HLA-LA, how it works, and all related examples.
+
 ## Installation
 
 1. Clone the repository:
@@ -13,6 +15,41 @@ A Python toolkit for mapping, subsampling, comparing, and plotting BAM files usi
    ```bash
    pip install -r requirements.txt
    ```
+
+## Prepared examples:
+
+### Preflight
+
+```
+source venv/bin/activate # activate environment
+```
+
+### 1. Mapping
+
+```
+python -m subsample_reads map
+```
+
+### 2. Sampling
+
+```
+# Regular sampling
+python -m subsample_reads sample --in-bam examples/example.bam --bed examples/example.bed --out-bam examples/example-out.bam
+
+# HLA-LA sampling
+python -m subsample_reads sample --prg GRCh38 --in-bam examples/example-prg.bam --bed examples/example-prg.bed --out-bam examples/example-prg-out.bam
+```
+
+### 3. Plotting
+
+In both cases, running the command should produce `example-out.png` where a stairlike pattern of increasing coverage should be visible for the processed BAM file in contrast to the original flat coverage of input BAM file.
+```
+# Regular plot
+python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam examples/example-out.bam --bed examples/example.bed --out-plt examples/example-out.png
+
+# HLA-LA plot
+python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam examples/example-out.bam --bed examples/example.bed --out-plt examples/example-out.png
+```
 
 ## Usage:
 
