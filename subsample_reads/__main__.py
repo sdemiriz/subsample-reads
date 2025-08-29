@@ -77,7 +77,6 @@ def plotter_mode(args):
         in_bam=args.in_bam,
         map_bam=args.map_bam,
         sub_bam=args.sub_bam,
-        bed_dir=args.bed_dir,
         bed=args.bed,
         out_plt=args.out_plt,
     )
@@ -184,18 +183,11 @@ def main():
         help="Plot BAM file(s) read depth together with supplied BED file(s).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    plotter.add_argument(
-        "--in-bam", required=True, help="Path to input/original BAM file."
-    )
-    plotter.add_argument("--map-bam", required=True, help="Path to mapping BAM file.")
-    plotter.add_argument(
-        "--sub-bam", required=True, help="Path to subsampled BAM file."
-    )
-    bed_selection = plotter.add_mutually_exclusive_group()
-    bed_selection.add_argument(
-        "--bed-dir", default="bed/", help="Directory to fetch a random BED file from."
-    )
-    bed_selection.add_argument("--bed", default=None, help="Specific BED file to plot.")
+    plotter.add_argument("--in-bam", help="Path to input/original BAM file.")
+    plotter.add_argument("--map-bam", help="Path to mapping BAM file.")
+    plotter.add_argument("--sub-bam", help="Path to subsampled BAM file.")
+
+    plotter.add_argument("--bed", default=None, help="Specific BED file to plot.")
     plotter.add_argument(
         "--out-plt", default="out.png", help="Path for the output plot."
     )
