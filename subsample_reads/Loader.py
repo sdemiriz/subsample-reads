@@ -420,7 +420,6 @@ class Loader(FileHandler):
         """
         # Convert to dictionary to modify
         r_dict = read.to_dict()
-        print(f"r_dict: {r_dict['name']}")
 
         old_ref_name = r_dict["ref_name"]
 
@@ -434,10 +433,6 @@ class Loader(FileHandler):
 
         # If read is mapped to PRG contig, convert coordinates to chr6
         elif r_dict["ref_name"].startswith("PRG"):
-            print(f"ref_name: {r_dict['ref_name']}, ref_pos: {r_dict['ref_pos']}")
-            print(
-                f"next_ref_name: {r_dict['next_ref_name']}, next_ref_pos: {r_dict['next_ref_pos']}"
-            )
 
             # Convert read position to chr6 coordinate, and update TID
             r_dict["ref_pos"] = self.out_bam.convert_to_chr6(
@@ -465,12 +460,6 @@ class Loader(FileHandler):
 
         else:
             raise ValueError(f"Loader - Cannot map contig {r_dict['ref_name']} to chr6")
-
-        print(f"ref_name: {r_dict['ref_name']}, ref_pos: {r_dict['ref_pos']}")
-        print(
-            f"next_ref_name: {r_dict['next_ref_name']}, next_ref_pos: {r_dict['next_ref_pos']}"
-        )
-        print()
 
         return pysam.AlignedSegment.from_dict(
             sam_dict=r_dict, header=self.out_bam.bam.header
