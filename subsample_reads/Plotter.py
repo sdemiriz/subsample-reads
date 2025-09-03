@@ -92,15 +92,18 @@ class Plotter(FileHandler):
         return list(counts)
 
     def plot(self) -> None:
-        """Plot provided BAM file pileups and read counts"""
+        """Plot provided BAM file pileups and read counts in separate subplots"""
         logger.info("Plotter - Begin plotting")
         fig, ax_line, ax_bar = self.setup_plot()
 
+        # Add content to line plot (left subplot)
         self.add_lineplot(ax=ax_line)
         self.add_boundaries(ax=ax_line)
-
         self.add_fractions(ax=ax_line)
+
+        # Add content to bar plot (right subplot)
         self.add_barplot(ax=ax_bar)
+        self.add_boundaries(ax=ax_bar)  # Add boundaries to bar plot as well
 
         self.add_annotations(ax_line=ax_line, ax_bar=ax_bar)
 
@@ -109,10 +112,11 @@ class Plotter(FileHandler):
 
     @staticmethod
     def setup_plot() -> tuple:
-        """Set up the figure and axes for plotting"""
+        """Set up the figure with two separate subplots side by side"""
         logger.info("Plotter - Setup plot")
-        fig, ax_line = plt.subplots(layout="constrained")
-        ax_bar = ax_line.twinx()
+        fig, (ax_line, ax_bar) = plt.subplots(
+            1, 2, figsize=(12, 5), layout="constrained"
+        )
 
         def custom_formatter(x, pos):
             if x >= 1e6:
@@ -121,8 +125,13 @@ class Plotter(FileHandler):
                 return f"{x:.0f}"
 
         formatter = mticker.FuncFormatter(custom_formatter)
+
+        # Apply formatting to both subplots
         ax_line.yaxis.set_major_formatter(formatter)
         ax_line.xaxis.set_major_formatter(formatter)
+        ax_bar.yaxis.set_major_formatter(formatter)
+        ax_bar.xaxis.set_major_formatter(formatter)
+
         return fig, ax_line, ax_bar
 
     def add_lineplot(self, ax) -> None:
@@ -152,16 +161,24 @@ class Plotter(FileHandler):
         """Add various text labels to supplied axes"""
         logger.info("Plotter - Add axes, title, legend")
 
-        ax_line.set_title(
-            f"Coverage across {self.intervals.contig}:{self.intervals.start}-{self.intervals.end}"
-        )
+        # Annotations for line plot (left subplot)
+        ax_line.set_title("Coverage Depth")
         ax_line.set_xlabel("Chromosomal coordinate")
-        ax_line.set_ylabel("Depth of coverage (line)")
-        ax_bar.set_ylabel("Read count (bar)", rotation=-90, labelpad=15)
-
+        ax_line.set_ylabel("Depth of coverage")
+        ax_line.legend(loc="upper right")
         ax_line.margins(y=0.1)
+
+        # Annotations for bar plot (right subplot)
+        ax_bar.set_title("Read Counts per Interval")
+        ax_bar.set_xlabel("Chromosomal coordinate")
+        ax_bar.set_ylabel("Read count")
         ax_bar.margins(y=0.1)
-        ax_line.legend(loc="upper right", bbox_to_anchor=(1, 0.9))
+
+        # Add overall title to the figure
+        region_info = (
+            f"{self.intervals.contig}:{self.intervals.start}-{self.intervals.end}"
+        )
+        ax_line.figure.suptitle(f"{region_info}", fontsize=14)
 
     def add_fractions(self, ax):
         """Add fractions to represent distribution values to supplied axis"""
