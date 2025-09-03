@@ -3,6 +3,7 @@ from typing import Optional
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 from subsample_reads.Loader import Loader
 from subsample_reads.Intervals import Intervals
@@ -112,6 +113,16 @@ class Plotter(FileHandler):
         logger.info("Plotter - Setup plot")
         fig, ax_line = plt.subplots(layout="constrained")
         ax_bar = ax_line.twinx()
+
+        def custom_formatter(x, pos):
+            if x >= 1e6:
+                return f"{x/1e6:.3f}m"  # Millions
+            else:
+                return f"{x:.0f}"
+
+        formatter = mticker.FuncFormatter(custom_formatter)
+        ax_line.yaxis.set_major_formatter(formatter)
+        ax_line.xaxis.set_major_formatter(formatter)
         return fig, ax_line, ax_bar
 
     def add_lineplot(self, ax) -> None:
@@ -141,13 +152,12 @@ class Plotter(FileHandler):
         """Add various text labels to supplied axes"""
         logger.info("Plotter - Add axes, title, legend")
 
-        ax_line.ticklabel_format(useOffset=False, style="plain")
         ax_line.set_title(
             f"Coverage across {self.intervals.contig}:{self.intervals.start}-{self.intervals.end}"
         )
         ax_line.set_xlabel("Chromosomal coordinate")
         ax_line.set_ylabel("Depth of coverage (line)")
-        ax_bar.set_ylabel("Read count (bar)", rotation=-90)
+        ax_bar.set_ylabel("Read count (bar)", rotation=-90, labelpad=15)
 
         ax_line.margins(y=0.1)
         ax_bar.margins(y=0.1)
@@ -178,7 +188,14 @@ class Plotter(FileHandler):
             counts = self.get_counts(start=start, end=end)
 
             bam_count = len(self.bams)
-            offset = 0.5 if bam_count % 2 == 0 else 1
+            if bam_count == 1:
+                offset = 0
+            elif bam_count == 2:
+                offset = 0.5
+            elif bam_count == 3:
+                offset = 1
+            else:
+                raise ValueError(f"Invalid number of BAMs: {bam_count}")
 
             for i, c in zip(range(bam_count), self.colormap.values()):
                 ax.bar(
