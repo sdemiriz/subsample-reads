@@ -20,18 +20,20 @@ If you do not work with HLA-LA, you can safely ignore everything written here re
 
 ### Preflight
 
+Activate environment if already set up
 ```
-source venv/bin/activate # activate environment
+source venv/bin/activate
 ```
 
 ### 1. Mapping
 
 ```
-python -m subsample_reads map
+python -m subsample_reads map --in-bam MISSING.bam --contig MISSING --start MISSING --end MISSING --interval-count MISSING
 ```
 
 ### 2. Sampling
 
+TODO: add a version of HLA-LA sampling without running the flag, showing the difference between including PRG reads and not
 ```
 # Regular sampling
 python -m subsample_reads sample --in-bam examples/example.bam --bed examples/example.bed --out-bam examples/example-out.bam
@@ -48,7 +50,7 @@ In both cases, running the command should produce `example-out.png` where a stai
 python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam examples/example-out.bam --bed examples/example.bed --out-plt examples/example-out.png
 
 # HLA-LA plot
-python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam examples/example-out.bam --bed examples/example.bed --out-plt examples/example-out.png
+python -m subsample_reads plot --in-bam examples/example-prg.bam --map-bam --out-bam examples/example-prg-out.bam --bed examples/example-prg.bed --out-plt examples/example-prg-out.png
 ```
 
 ## Usage:
@@ -57,19 +59,19 @@ python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam
 
 ### 1. Mapping
 
-Divide a genomic region into intervals and count the number of reads in each interval. Output read count and fraction of all reads counted as BED file.
+Divide a genomic region into intervals and count the number of reads in each interval from the provided BAM file. Outputs read count and fraction of all reads counted as BED file.
 ```bash
 python -m subsample_reads map [options]
 
 # Required
 --in-bam BAM [BAM ...]      : One or more BAM files to map.
 --contig CONTIG             : Contig name (e.g., chr6) present in all BAM files.
---start START               : Start coordinate of the region to map.
---end END                   : End coordinate of the region to map.
+--start START               : Start coordinate of the mapping region.
+--end END                   : End coordinate of the mapping region.
 
 # Mutually exclusive
---interval-length LENGTH    : Specify interval size.
---interval-count COUNT      : Specify number of intervals.
+--interval-length LENGTH    : Specify interval size to divide the mapping region.
+--interval-count COUNT      : Specify number of intervals to divide the mapping region.
 
 # Optional
 --bed-dir DIR               : Output directory for BED files (default: bed/).
@@ -90,14 +92,18 @@ Subsample a BAM file according to a BED-defined read depth distribution, ideally
 python -m subsample_reads sample [options]
 
 # Required 
---in-bam BAM        : BAM file to subsample.
+--in-bam BAM              : BAM file to subsample.
+
+# Mutually exclusive
+--bed-dir DIR             : Directory to fetch a random BED file from (default: `bed/`).
+--bed BED                 : Specific BED file to use for sampling.
 
 # Optional
---bed-dir DIR       : Directory to fetch BED files from (default: `bed/`).
---bed BED           : Specific BED file to use for sampling.
---seed SEED         : Random seed for reproducibility (default: 42).
---out-bam BAM       : Output BAM file (default: `out.bam`).
---prg               : Enable HLA-LA PRG mode for sampling (back-maps PRG-mapped reads to chr6 coordinates).
+--seed SEED               : Random seed for reproducibility (default: 42).
+--out-bam BAM             : Output BAM file (default: `out.bam`).
+
+# HLA-LA flag
+--prg [GRCh37 | GRCh37]   : Enable HLA-LA PRG mode for sampling (back-maps PRG reads to chr6 coordinates).
 ```
 
 **Example (Regular sampling):**
@@ -111,40 +117,10 @@ python -m subsample_reads sample \
 **Example (HLA-LA PRG mode):**
 ```bash
 python -m subsample_reads sample \
-  --prg \
+  --prg GRCh38 \
   --in-bam remapped_with_a.bam \
   --bed bed/sample1.bed \
   --out-bam prg-subsampled.bam
-```
-
----
-
-### 3. HLA*LA-specific Sampling
-
-First, map back to chr6 HLA*LA PRG-mapped reads and a BED file, then subsample as normal.
-```bash
-python -m subsample_reads hlala [options]
-
-# Required
---hlala-dir DIR     : Path to HLA*LA setup directory (default: `HLA-LA/`).
---sampleID ID       : HLA*LA processed sample ID.
---prg VERSION       : GRCh38 or GRCh37 values supported.
-
-# Optional
---bed-dir DIR       : Directory to fetch BED files from (default: `bed/`).
---bed BED           : Specific BED file to use for sampling.
---seed SEED         : Random seed (default: 42).
---out-bam BAM       : Output BAM file (default: `out.bam`).
-```
-
-**Example:**
-```bash
-python -m subsample_reads hlala \
-  --hlala-dir HLA-LA/ \
-  --sampleID HG00157 \
-  --bed bed/sample1.bed \
-  --seed 02836 \
-  --out-bam hlala-subsampled.bam
 ```
 
 ---
@@ -158,7 +134,9 @@ python -m subsample_reads compare [options]
 # Required
 --bam_left BAM      : First BAM file.
 --bam_right BAM     : Second BAM file.
---out FILE          : Output file for overlap information (tab-delimited).
+
+# Optional
+--out FILE          : Output file for overlap information (default `out.tsv`).
 ```
 
 **Example:**
@@ -177,15 +155,14 @@ Plot read depth and interval coverage from BAM and BED files. Visualize coverage
 ```bash
 python -m subsample_reads plot [options]
 
-# Required
---in-bam BAM        : Input/original BAM file.
---map-bam BAM       : Mapping BAM file.
---sub-bam BAM       : Subsampled BAM file.
+# Optional
+--in-bam BAM      : Input/original BAM file.
+--map-bam BAM     : Mapping BAM file.
+--sub-bam BAM     : Subsampled BAM file.
+--bed BED         : Specific BED file to determine the region to plot.
 
 # Optional
---bed-dir DIR       : Directory to fetch a random BED file from (default: `bed/`).
---bed BED           : Specific BED file to plot.
---out-plt PNG       : Output plot file (default: `out.png`).
+--out-plt PNG     : Output plot file (default: `out.png`).
 ```
 
 **Example:**
