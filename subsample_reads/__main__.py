@@ -1,100 +1,136 @@
 #!/usr/bin/env python
 
-import argparse
 import os
 import sys
+import argparse
 from datetime import datetime as dt
 from logging import INFO, basicConfig, getLogger
 
-from subsample_reads.Plotter import Plotter
 from subsample_reads.Loader import Loader
 from subsample_reads.Mapper import Mapper
+from subsample_reads.Plotter import Plotter
 from subsample_reads.Comparator import Comparator
 
 # Ensure log directory exists
 os.makedirs("log", exist_ok=True)
 
-# Configure logging
-basicConfig(
-    filename=dt.now().strftime("log/%d%m_%H%M%S.txt"),
-    level=INFO,
-    format="{asctime} [{levelname}]: {message}",
-    style="{",
-    datefmt="%H:%M:%S",
-)
-logger = getLogger("subsample_reads")
 
+def configure_logging(mode):
+    """Configure logging with mode-specific suffix."""
+    timestamp = dt.now().strftime("%d%m_%H%M%S")
+    log_filename = f"log/{timestamp}_{mode}.txt"
 
-def mapper_mode(args):
-    """Chart a distribution of reads from given BAM file."""
-    Mapper(
-        bam_paths=args.in_bam,
-        contig=args.contig,
-        start=args.start,
-        end=args.end,
-        interval_length=args.interval_length,
-        interval_count=args.interval_count,
-        bed_dir=args.bed_dir,
+    basicConfig(
+        filename=log_filename,
+        level=INFO,
+        format="{asctime} [{levelname}]: {message}",
+        style="{",
+        datefmt="%H:%M:%S",
     )
+    logger = getLogger("subsample_reads")
 
-
-def sample_mode(args):
-    """Sample provided BAM file based on regions in BED file."""
-    in_bam = Loader(bam_path=args.in_bam)
-
-    # Determine if we're in HLA-LA mode based on --prg flag
-    if args.prg:
-        # HLA-LA mode: use PRG-specific sampling with specified genome build
-        in_bam.run_sampling(
-            hlala_mode=True,
-            bed_dir=args.bed_dir,
-            bed_file=args.bed,
-            main_seed=args.seed,
-            out_bam=args.out_bam,
-            genome_build=args.prg,
-        )
-    else:
-        # Regular mode: use standard sampling
-        in_bam.run_sampling(
-            hlala_mode=False,
-            bed_dir=args.bed_dir,
-            bed_file=args.bed,
-            main_seed=args.seed,
-            out_bam=args.out_bam,
-        )
-
-    in_bam.close()
-
-
-def compare_mode(args):
-    """Compare two BAM files to see how many reads overlap with each other."""
-    Comparator(bam_left_path=args.bam_left, bam_right_path=args.bam_right, out=args.out)
-
-
-def plotter_mode(args):
-    """Chart a distribution of reads from given BAM file."""
-    plotter = Plotter(
-        in_bam=args.in_bam,
-        map_bam=args.map_bam,
-        sub_bam=args.sub_bam,
-        bed=args.bed,
-        out_plt=args.out_plt,
-    )
-
-    plotter.plot()
-
-
-def main():
-    """Main CLI entry point for subsample-reads toolkit."""
     # Log the command line invocation for reproducibility
-
     command_line = sys.argv.copy()
     command_line[0] = "python -m subsample_reads"
     command_line = " ".join(command_line)
     logger.info(f"Command: {command_line}")
-
     logger.info("Begin log")
 
+    return logger
+
+
+def mapper_mode(args):
+    """Chart a distribution of reads from given BAM file."""
+    logger = configure_logging("map")
+
+    try:
+        Mapper(
+            bam_paths=args.in_bam,
+            contig=args.contig,
+            start=args.start,
+            end=args.end,
+            interval_length=args.interval_length,
+            interval_count=args.interval_count,
+            bed_dir=args.bed_dir,
+        )
+        logger.info("End log\n")
+
+    except Exception as e:
+        logger.error(f"Mapper - Exception encountered. Details:\n{e}", exc_info=True)
+        raise e
+
+
+def sample_mode(args):
+    """Sample provided BAM file based on regions in BED file."""
+    logger = configure_logging("sample")
+
+    try:
+        in_bam = Loader(bam_path=args.in_bam)
+
+        # Determine if we're in HLA-LA mode based on --prg flag
+        if args.prg:
+            # HLA-LA mode: use PRG-specific sampling with specified genome build
+            in_bam.run_sampling(
+                hlala_mode=True,
+                bed_dir=args.bed_dir,
+                bed_file=args.bed,
+                main_seed=args.seed,
+                out_bam=args.out_bam,
+                genome_build=args.prg,
+            )
+        else:
+            # Regular mode: use standard sampling
+            in_bam.run_sampling(
+                hlala_mode=False,
+                bed_dir=args.bed_dir,
+                bed_file=args.bed,
+                main_seed=args.seed,
+                out_bam=args.out_bam,
+            )
+
+        in_bam.close()
+        logger.info("End log\n")
+    except Exception as e:
+        logger.error(f"Sample - Exception encountered. Details:\n{e}", exc_info=True)
+        raise e
+
+
+def compare_mode(args):
+    """Compare two BAM files to see how many reads overlap with each other."""
+    logger = configure_logging("compare")
+
+    try:
+        Comparator(
+            bam_left_path=args.bam_left, bam_right_path=args.bam_right, out=args.out
+        )
+        logger.info("End log\n")
+    except Exception as e:
+        logger.error(f"Compare - Exception encountered. Details:\n{e}", exc_info=True)
+        raise e
+
+
+def plotter_mode(args):
+    """Chart a distribution of reads from given BAM file."""
+    logger = configure_logging("plot")
+
+    try:
+        plotter = Plotter(
+            in_bam=args.in_bam,
+            map_bam=args.map_bam,
+            sub_bam=args.sub_bam,
+            bed=args.bed,
+            out_plt=args.out_plt,
+        )
+
+        plotter.plot()
+        logger.info("End log\n")
+    except Exception as e:
+        logger.error(f"Plotter - Exception encountered. Details:\n{e}", exc_info=True)
+        raise e
+
+
+def main():
+    """Main CLI entry point for subsample-reads toolkit."""
     parser = argparse.ArgumentParser(
         prog="python -m subsample-reads",
         description="Toolkit for mapping, sampling, and plotting BAM files.",
@@ -180,7 +216,7 @@ def main():
         "--bam-right", required=True, help="Path to second BAM for the comparison."
     )
     compare.add_argument(
-        "--out", required=True, help="Output file for cross-mapping info."
+        "--out", default="out.tsv", help="Output file for cross-mapping info."
     )
     compare.set_defaults(func=compare_mode)
 
@@ -201,15 +237,9 @@ def main():
     plotter.set_defaults(func=plotter_mode)
 
     args = parser.parse_args()
-    logger.info("Main - Accept arguments")
 
-    try:
-        args.func(args)
-    except Exception as e:
-        logger.error(f"Main - Exception encountered. Details:\n{e}", exc_info=True)
-        raise e
-
-    logger.info("Main - End log\n")
+    # Execute the selected mode function
+    args.func(args)
 
 
 if __name__ == "__main__":
