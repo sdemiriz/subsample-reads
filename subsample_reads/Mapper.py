@@ -1,12 +1,11 @@
-from typing import Optional
-from pathlib import Path
-from math import log
-import pandas as pd
 import logging
-import pysam
+from pathlib import Path
+from typing import Optional
 
-from subsample_reads.FileHandler import FileHandler
+import pandas as pd
+
 from subsample_reads.Loader import Loader
+from subsample_reads.FileHandler import FileHandler
 
 logger = logging.getLogger(__name__)
 
