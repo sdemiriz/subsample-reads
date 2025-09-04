@@ -13,7 +13,7 @@ header = pysam.AlignmentHeader.from_dict(
         "RG": [],
     }
 )
-out_file = "examples/example.bam"
+out_file = "examples/example-map.bam"
 out_bam = pysam.AlignmentFile(out_file, "wb", header=header)
 
 # Read creation
@@ -21,7 +21,7 @@ read_count = 0
 for interval in range(10):
     interval_start = 100 + interval * 100 + 1
 
-    for i in range(10):
+    for i in range(interval + 1):
         read = {
             "name": f"READ_{read_count:03d}",
             "ref_name": "chr1",

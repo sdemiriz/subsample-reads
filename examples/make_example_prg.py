@@ -13,7 +13,7 @@ header = pysam.AlignmentHeader.from_dict(
         "RG": [],
     }
 )
-out_file = "example-prg.bam"
+out_file = "examples/example-prg.bam"
 out_bam = pysam.AlignmentFile(out_file, "wb", header=header)
 
 # Read creation on chr6, HLA-A gene
@@ -21,7 +21,6 @@ hla_a = ("chr6", 29941260, 29949572)
 read_count = 0
 for interval in range(10):
     interval_start = hla_a[1] + interval * 100 + 1
-    interval_end = interval_start + 100
 
     for i in range(10):
         read = {
@@ -48,7 +47,6 @@ for interval in range(10):
 read_count = 0
 for interval in range(10):
     interval_start = interval * 100 + 1
-    interval_end = interval_start + 100
 
     for i in range(10):
         read = {

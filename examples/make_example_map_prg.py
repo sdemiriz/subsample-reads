@@ -9,26 +9,27 @@ header = pysam.AlignmentHeader.from_dict(
     {
         "HD": {"VN": "1.5"},
         "PG": [],
-        "SQ": [{"SN": "chr1", "LN": 248956422}],
+        "SQ": [{"SN": "chr6", "LN": 170805979}],
         "RG": [],
     }
 )
-out_file = "examples/example.bam"
+out_file = "examples/example-prg-map.bam"
 out_bam = pysam.AlignmentFile(out_file, "wb", header=header)
 
 # Read creation
+hla_a = ("chr6", 29941260, 29949572)
 read_count = 0
 for interval in range(10):
-    interval_start = 100 + interval * 100 + 1
+    interval_start = hla_a[1] + interval * 100 + 1
 
-    for i in range(10):
+    for i in range(interval + 1):
         read = {
-            "name": f"READ_{read_count:03d}",
-            "ref_name": "chr1",
+            "name": f"READ_{read_count:04d}",
+            "ref_name": "chr6",
             "flag": "0",
             "ref_pos": str(interval_start),
             "next_ref_pos": str(interval_start + 1),
-            "next_ref_name": "chr1",
+            "next_ref_name": "chr6",
             "cigar": "100M",
             "seq": "A" * 100,
             "qual": "?" * 100,
