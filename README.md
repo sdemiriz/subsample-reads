@@ -1,65 +1,61 @@
-# subsample-reads Toolkit
+# SubsampleReads: An Interval Tree Based Non-Uniform Next Generation Sequencing Data Downsampling Toolkit
 
-A Python toolkit for mapping, subsampling, comparing, and plotting BAM files using BED-defined intervals. Written for bioinformatics  high-throughput sequencing data and compatible with HLA*LA and its PRG-remapping approach.
+**Sedat Demiriz<sup>1</sup>, Daniel Taliun<sup>1</sup>**  
+<sup>1</sup>Department of Human Genetics, McGill University
 
-If you do not work with HLA-LA, you can safely ignore everything written here regarding HLA-LA, how it works, and all related examples.
+A Python, `pysam` based toolkit for mapping, downsampling, comparing, and plotting BAM files using BED file-defined intervals. Written for NGS data processing and compatible with HLA*LA and its PRG-remapping approach.
+
+If you do not work with the tool HLA\*LA, you can safely ignore everything written here regarding PRG and back-mapping, how it works, and all related examples.
 
 ## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/sdemiriz/subsample-reads.git
-   cd subsample-reads
-   ```
+  ```bash
+  git clone https://github.com/sdemiriz/subsample-reads.git
+  cd subsample-reads
+  ```
 2. Install dependencies (ideally in a virtual environment):
-   ```bash
-   pip install -r requirements.txt
-   ```
+  ```bash
+  pip install -r requirements.txt
+  ```
+3. Test run:
+  ```bash
+  python -m subsample_reads
+  ```
 
 ## Prepared examples:
 
-### Preflight
+A demo Makefile is available at the repository root with example workflows.
 
-Activate environment if already set up
-```
-source venv/bin/activate
-```
-
-### 1. Mapping
-
-```
-python -m subsample_reads map --in-bam MISSING.bam --contig MISSING --start MISSING --end MISSING --interval-count MISSING
+```bash
+make run-example
+make run-example-prg
+make algo-demo
 ```
 
-### 2. Sampling
+A Python `venv` will be created from `requirements.txt` before the tool is run. Everything produced during these steps is contained in the `examples/` directory.
 
-TODO: add a version of HLA-LA sampling without running the flag, showing the difference between including PRG reads and not
+The first two will each generate a BAM file, and run the full `map` -> `sample` -> `plot` core workflow and demonstrate the commands. The BAM files generated are small enough to be human readable to allow confirmation that the tool works as intended. Each read is 100 bases long with numbered names for easy reading and falls fully inside 10 intervals each 100 bases long.
+
+`run-example` should produce a BAM file that contains only chr6-aligned reads with the plot outputs showing a distinct increasing staircase pattern in both coverage and read count.
+
+`run-example-prg` should produce identical plots as `run-example` but the starting BAM file also contains a mix of PRG reads, distinguishable by their read names from chr6-aligned reads. When the tool has completed, the downsampled output should contain a mix of chr6-aligned and PRG-aligned reads from the input.
+
+`algo-demo` will generate a minimal example with a few reads and limited scope for generating an accompanying figure. The output of this rule will list a number of read names that should match those in the figure. **Requires samtools to be available**
+
+Other available commands:
 ```
-# Regular sampling
-python -m subsample_reads sample --in-bam examples/example.bam --bed examples/example.bed --out-bam examples/example-out.bam
-
-# HLA-LA sampling
-python -m subsample_reads sample --prg GRCh38 --in-bam examples/example-prg.bam --bed examples/example-prg.bed --out-bam examples/example-prg-out.bam
+make all      : Run all rules from above
+make clean    : Delete created BAM, BED files and plot images.
 ```
 
-### 3. Plotting
-
-In both cases, running the command should produce `example-out.png` where a stairlike pattern of increasing coverage should be visible for the processed BAM file in contrast to the original flat coverage of input BAM file.
-```
-# Regular plot
-python -m subsample_reads plot --in-bam examples/example.bam --map-bam --out-bam examples/example-out.bam --bed examples/example.bed --out-plt examples/example-out.png
-
-# HLA-LA plot
-python -m subsample_reads plot --in-bam examples/example-prg.bam --map-bam --out-bam examples/example-prg-out.bam --bed examples/example-prg.bed --out-plt examples/example-prg-out.png
-```
 
 ## Usage:
-
-## Subcommands
 
 ### 1. Mapping
 
 Divide a genomic region into intervals and count the number of reads in each interval from the provided BAM file. Outputs read count and fraction of all reads counted as BED file.
+
 ```bash
 python -m subsample_reads map [options]
 
@@ -74,14 +70,16 @@ python -m subsample_reads map [options]
 --interval-count COUNT      : Specify number of intervals to divide the mapping region.
 
 # Optional
---bed-dir DIR               : Output directory for BED files (default: bed/).
+--bed-dir DIR               : Directory for output BED files (default: bed/).
 ```
 
-**Example:**
+### Example:
 ```bash
 python -m subsample_reads map \
   --in-bam sample1.bam sample2.bam \
-  --contig chr6 --start 25000000 --end 35000000 \
+  --contig chr6 \
+  --start 25000000 \
+  --end 35000000 \
   --interval-count 10
 ```
 
@@ -103,83 +101,85 @@ python -m subsample_reads sample [options]
 --out-bam BAM             : Output BAM file (default: `out.bam`).
 
 # HLA-LA flag
---prg [GRCh37 | GRCh37]   : Enable HLA-LA PRG mode for sampling (back-maps PRG reads to chr6 coordinates).
+--prg [GRCh38 | GRCh37]   : Enable HLA-LA PRG-aware sampling (back-maps PRG reads to chr6 coordinates).
 ```
 
-**Example (Regular sampling):**
+### Example (Regular sampling):
 ```bash
 python -m subsample_reads sample \
-  --in-bam sample1.bam \
+  --in-bam sample3.bam \
   --bed bed/sample1.bed \
-  --out-bam subsampled.bam
+  --out-bam sample3-downsampled.bam
 ```
 
-**Example (HLA-LA PRG mode):**
+### Example (HLA-LA PRG mode):
 ```bash
 python -m subsample_reads sample \
   --prg GRCh38 \
-  --in-bam remapped_with_a.bam \
+  --in-bam prg-mapped.bam \
   --bed bed/sample1.bed \
-  --out-bam prg-subsampled.bam
+  --out-bam prg-mapped-downsampled.bam
 ```
 
 ---
 
 ### 4. Comparison
 
-Compare two BAM files to check the back-mapping performance. Searches read names across the two BAM files and outputs before-and-after coordinates side by side. Performs a right join, keeping all read names from `bam_right`. Therefore, it is suggested to use the smaller of the two BAMs for this value.
+Compare two BAM files to check the back-mapping performance. Searches read names across the two BAM files and outputs before-and-after coordinates side by side. Performs a right join, keeping all read names from `bam-right`. Therefore, it is suggested to use the downsampled BAM for this flag.
 ```bash
 python -m subsample_reads compare [options]
 
 # Required
---bam_left BAM      : First BAM file.
---bam_right BAM     : Second BAM file.
+--bam-left BAM      : First BAM file.
+--bam-right BAM     : Second BAM file.
 
 # Optional
 --out FILE          : Output file for overlap information (default `out.tsv`).
 ```
 
-**Example:**
+### Example:
 ```bash
 python -m subsample_reads compare \
   --bam_left sample1.bam \
-  --bam_right sample2.bam \
-  --out overlap.tsv
+  --bam_right sample1-downsampled.bam \
+  --out sample1-overlap.tsv
 ```
 
 ---
 
 ### 5. Plotting
-Plot read depth and interval coverage from BAM and BED files. Visualize coverage and read distribution across intervals.
+Plot depth of coverage and read count in each interval from BAM and BED files via lineplot and barplot.
 
 ```bash
 python -m subsample_reads plot [options]
 
-# Optional
+# Required
+--bed BED         : Specific BED file to determine the region to plot.
+
+# Optional, any combination of these values is supported.
 --in-bam BAM      : Input/original BAM file.
 --map-bam BAM     : Mapping BAM file.
---sub-bam BAM     : Subsampled BAM file.
---bed BED         : Specific BED file to determine the region to plot.
+--out-bam BAM     : Subsampled BAM file.
 
 # Optional
 --out-plt PNG     : Output plot file (default: `out.png`).
 ```
 
-**Example:**
+### Example:
 ```bash
 python -m subsample_reads plot \
   --in-bam sample1.bam \
   --map-bam sample2.bam \
-  --sub-bam subsampled.bam \
-  --bed bed/sample1.bed \
-  --out-plt coverage.png
+  --out-bam sample1-downsampled.bam \
+  --bed bed/sample2.bed \
+  --out-plt sample1-plot.png
 ```
 
 ---
 
 ## Logging
 
-Timestamped log files are written to the `log/` directory for each run.
+Log files are written to the `log/` directory for each run. Filenames contain timestamp and name of invoked command.
 
 ## Testing
 

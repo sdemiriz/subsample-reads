@@ -18,7 +18,7 @@ class Plotter(FileHandler):
         self,
         in_bam: Optional[str],
         map_bam: Optional[str],
-        sub_bam: Optional[str],
+        out_bam: Optional[str],
         bed: str,
         out_plt: str,
     ) -> None:
@@ -28,7 +28,7 @@ class Plotter(FileHandler):
         Args:
             in_bam:   Path to input/original BAM file.
             map_bam:  Path to mapping BAM file.
-            sub_bam:  Path to subsampled BAM file.
+            out_bam:  Path to downsampled BAM file.
             bed_dir:  Directory to fetch a random BED file from.
             bed:      Specific BED file to plot.
             out_plt:  Path for the output plot.
@@ -50,9 +50,9 @@ class Plotter(FileHandler):
             self.map_bam = Loader(bam_path=map_bam)
             self.bams["map"] = self.map_bam
             self.colormap["map"] = "#DC267F"
-        if sub_bam:
-            self.sub_bam = Loader(bam_path=sub_bam)
-            self.bams["out"] = self.sub_bam
+        if out_bam:
+            self.out_bam = Loader(bam_path=out_bam)
+            self.bams["out"] = self.out_bam
             self.colormap["out"] = "#FFB000"
 
         self.out_plt = out_plt
@@ -188,7 +188,7 @@ class Plotter(FileHandler):
             ax.text(
                 x=(row[1]["start"] + row[1]["end"]) / 2,
                 y=ax.get_ylim()[1] * 0.99,
-                s=str(row[1]["fraction"])[:5],
+                s=str(row[1]["read_count"] / sum(self.intervals.bed["read_count"]))[:5],
                 ha="center",
                 color="black",
                 size="x-small",

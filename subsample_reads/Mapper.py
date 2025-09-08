@@ -52,7 +52,7 @@ class Mapper(FileHandler):
         )
 
         self.populate_read_counts(contig=self.contig, beds=self.beds, bams=self.bams)
-        self.populate_fractions(contig=self.contig, beds=self.beds, bams=self.bams)
+        # self.populate_fractions(contig=self.contig, beds=self.beds, bams=self.bams)
 
         self.write_beds(beds=self.beds, bed_paths=self.bed_paths)
 
@@ -117,7 +117,7 @@ class Mapper(FileHandler):
             interval_count=interval_count,
         )
 
-        bed_columns = ["contig", "start", "end", "read_count", "fraction"]
+        bed_columns = ["contig", "start", "end", "read_count"]
 
         beds = []
         for bam in self.bams:
@@ -129,7 +129,6 @@ class Mapper(FileHandler):
                         bed_columns[1]: s,
                         bed_columns[2]: e,
                         bed_columns[3]: -1,
-                        bed_columns[4]: -1,
                     }
                 )
 
@@ -188,19 +187,19 @@ class Mapper(FileHandler):
             ]
             bed["read_count"] = read_counts
 
-    def populate_fractions(
-        self, contig: str, beds: list[pd.DataFrame], bams: list[Loader]
-    ) -> None:
-        """
-        Fill read fractions in all BED DataFrames
-        """
-        logger.info(f"Mapper - Populate read fractions in BED files")
-        for bed, bam in zip(beds, bams):
-            bed["fraction"] = [
-                bam.bam.count(contig=contig, start=row[1], end=row[2])
-                / sum(bed["read_count"])
-                for row in bed.itertuples(index=False)
-            ]
+    # def populate_fractions(
+    #     self, contig: str, beds: list[pd.DataFrame], bams: list[Loader]
+    # ) -> None:
+    #     """
+    #     Fill read fractions in all BED DataFrames
+    #     """
+    #     logger.info(f"Mapper - Populate read fractions in BED files")
+    #     for bed, bam in zip(beds, bams):
+    #         bed["fraction"] = [
+    #             bam.bam.count(contig=contig, start=row[1], end=row[2])
+    #             / sum(bed["read_count"])
+    #             for row in bed.itertuples(index=False)
+    #         ]
 
     def write_beds(self, beds: list[pd.DataFrame], bed_paths: list[Path]) -> None:
         """

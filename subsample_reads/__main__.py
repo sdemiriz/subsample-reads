@@ -40,7 +40,7 @@ def configure_logging(mode):
 
 
 def mapper_mode(args):
-    """Chart a distribution of reads from given BAM file."""
+    """Produce a distribution of read counts from given BAM file."""
     logger = configure_logging("map")
 
     try:
@@ -61,7 +61,7 @@ def mapper_mode(args):
 
 
 def sample_mode(args):
-    """Sample provided BAM file based on regions in BED file."""
+    """Sample provided BAM file(s) based on regions in BED file."""
     logger = configure_logging("sample")
 
     try:
@@ -96,7 +96,7 @@ def sample_mode(args):
 
 
 def compare_mode(args):
-    """Compare two BAM files to see how many reads overlap with each other."""
+    """Compare two BAM files to compare read data before and after downsampling."""
     logger = configure_logging("compare")
 
     try:
@@ -110,14 +110,14 @@ def compare_mode(args):
 
 
 def plotter_mode(args):
-    """Chart a distribution of reads from given BAM file."""
+    """Plot a distribution of depth of coverage and read count in each interval."""
     logger = configure_logging("plot")
 
     try:
         plotter = Plotter(
             in_bam=args.in_bam,
             map_bam=args.map_bam,
-            sub_bam=args.sub_bam,
+            out_bam=args.out_bam,
             bed=args.bed,
             out_plt=args.out_plt,
         )
@@ -184,22 +184,24 @@ def main():
         help="Apply generated read depth distribution(s) from selected BED file(s) to supplied BAM file. Use --prg flag for HLA-LA PRG back-mapping.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    sample.add_argument("--in-bam", required=True, help="Target BAM file to subset.")
+    sample.add_argument(
+        "--in-bam", required=True, help="Target BAM file to downsample."
+    )
     bed_selection = sample.add_mutually_exclusive_group()
     bed_selection.add_argument(
         "--bed-dir", default="bed/", help="Directory to fetch BED files from."
     )
     bed_selection.add_argument(
-        "--bed", default=None, help="Specify one BED file to sample from."
+        "--bed", default=None, help="Specify one BED file to downsample from."
     )
     sample.add_argument(
-        "--seed", default=42, type=int, help="Seed for random subsampling."
+        "--seed", default=42, type=int, help="Seed for random downsampling."
     )
     sample.add_argument("--out-bam", default="out.bam", help="Output BAM file.")
     sample.add_argument(
         "--prg",
         choices=["GRCh37", "GRCh38"],
-        help="Enable HLA-LA PRG mode for sampling with specified genome build (GRCh37 or GRCh38).",
+        help="Enable HLA-LA PRG mode for downsampling with specified genome build (GRCh37 or GRCh38).",
     )
     sample.set_defaults(func=sample_mode)
 
@@ -228,7 +230,7 @@ def main():
     )
     plotter.add_argument("--in-bam", help="Path to input/original BAM file.")
     plotter.add_argument("--map-bam", help="Path to mapping BAM file.")
-    plotter.add_argument("--sub-bam", help="Path to subsampled BAM file.")
+    plotter.add_argument("--out-bam", help="Path to downsampled BAM file.")
 
     plotter.add_argument("--bed", default=None, help="Specific BED file to plot.")
     plotter.add_argument(
