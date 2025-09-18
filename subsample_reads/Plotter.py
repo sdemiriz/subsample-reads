@@ -21,6 +21,7 @@ class Plotter(FileHandler):
         out_bam: Optional[str],
         bed: str,
         out_plt: str,
+        no_det: bool = False,
     ) -> None:
         """
         Initialize Plotter with argument names.
@@ -32,6 +33,7 @@ class Plotter(FileHandler):
             bed_dir:  Directory to fetch a random BED file from.
             bed:      Specific BED file to plot.
             out_plt:  Path for the output plot.
+            no_det:     Whether to include details in plots (disable for large regions)
         """
         logger.info("Plotter - Initialize")
 
@@ -56,6 +58,7 @@ class Plotter(FileHandler):
             self.colormap["out"] = "#FFB000"
 
         self.out_plt = out_plt
+        self.no_det = no_det
 
         logger.info("Plotter - Complete initialization")
 
@@ -96,16 +99,15 @@ class Plotter(FileHandler):
         logger.info("Plotter - Begin plotting")
         fig, ax_line, ax_bar = self.setup_plot()
 
-        # Add content to line plot (left subplot)
+        # Add content to bar and line plot
         self.add_lineplot(ax=ax_line)
-        self.add_boundaries(ax=ax_line)
-        self.add_fractions(ax=ax_line)
-
-        # Add content to bar plot (right subplot)
         self.add_barplot(ax=ax_bar)
-        self.add_boundaries(ax=ax_bar)  # Add boundaries to bar plot as well
-
         self.add_annotations(ax_line=ax_line, ax_bar=ax_bar)
+
+        if not self.no_det:
+            self.add_boundaries(ax=ax_line)
+            self.add_fractions(ax=ax_line)
+            self.add_boundaries(ax=ax_bar)
 
         logger.info("Plotter - Save plot")
         plt.savefig(self.out_plt, dpi=600)
@@ -174,7 +176,9 @@ class Plotter(FileHandler):
         ax_bar.set_ylabel("Read count")
         ax_bar.margins(y=0.1)
 
-        # Add overall title to the figure
+        ax_line.legend(loc="upper right")
+
+        # Add super title to the figure
         region_info = (
             f"{self.intervals.contig}:{self.intervals.start}-{self.intervals.end}"
         )

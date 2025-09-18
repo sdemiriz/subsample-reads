@@ -236,6 +236,11 @@ def main():
     plotter.add_argument(
         "--out-plt", default="out.png", help="Path for the output plot."
     )
+    plotter.add_argument(
+        "--no-det",
+        action="store_true",
+        help="Set det parameter to False for the Plotter class.",
+    )
     plotter.set_defaults(func=plotter_mode)
 
     args = parser.parse_args()
