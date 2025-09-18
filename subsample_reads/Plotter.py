@@ -167,7 +167,6 @@ class Plotter(FileHandler):
         ax_line.set_title("Coverage Depth")
         ax_line.set_xlabel("Chromosomal coordinate")
         ax_line.set_ylabel("Depth of coverage")
-        ax_line.legend(loc="upper right")
         ax_line.margins(y=0.1)
 
         # Annotations for bar plot (right subplot)
