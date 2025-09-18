@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import argparse
 from datetime import datetime as dt
 from logging import INFO, basicConfig, getLogger
@@ -44,6 +45,14 @@ def mapper_mode(args):
     logger = configure_logging("map")
 
     try:
+        start_time = time.time()
+
+        # Validate that if bed_files is provided, it matches the number of BAM files
+        if args.bed and len(args.bed) != len(args.in_bam):
+            raise ValueError(
+                f"Number of BED files ({len(args.bed)}) must match number of BAM files ({len(args.in_bam)})"
+            )
+
         Mapper(
             bam_paths=args.in_bam,
             contig=args.contig,
@@ -52,6 +61,7 @@ def mapper_mode(args):
             interval_length=args.interval_length,
             interval_count=args.interval_count,
             bed_dir=args.bed_dir,
+            bed=args.bed,
         )
         logger.info("End log\n")
 
@@ -59,12 +69,18 @@ def mapper_mode(args):
         logger.error(f"Mapper - Exception encountered. Details:\n{e}", exc_info=True)
         raise e
 
+    finally:
+        end_time = time.time()
+        logger.info(f"Mapper - Time taken: {end_time - start_time} seconds")
+
 
 def sample_mode(args):
     """Sample provided BAM file(s) based on regions in BED file."""
     logger = configure_logging("sample")
 
     try:
+        start_time = time.time()
+
         in_bam = Loader(bam_path=args.in_bam)
 
         # Determine if we're in HLA-LA mode based on --prg flag
@@ -94,12 +110,18 @@ def sample_mode(args):
         logger.error(f"Sample - Exception encountered. Details:\n{e}", exc_info=True)
         raise e
 
+    finally:
+        end_time = time.time()
+        logger.info(f"Sample - Time taken: {end_time - start_time} seconds")
+
 
 def compare_mode(args):
     """Compare two BAM files to compare read data before and after downsampling."""
     logger = configure_logging("compare")
 
     try:
+        start_time = time.time()
+
         Comparator(
             bam_left_path=args.bam_left, bam_right_path=args.bam_right, out=args.out
         )
@@ -108,18 +130,25 @@ def compare_mode(args):
         logger.error(f"Compare - Exception encountered. Details:\n{e}", exc_info=True)
         raise e
 
+    finally:
+        end_time = time.time()
+        logger.info(f"Compare - Time taken: {end_time - start_time} seconds")
+
 
 def plotter_mode(args):
     """Plot a distribution of depth of coverage and read count in each interval."""
     logger = configure_logging("plot")
 
     try:
+        start_time = time.time()
+
         plotter = Plotter(
             in_bam=args.in_bam,
             map_bam=args.map_bam,
             out_bam=args.out_bam,
             bed=args.bed,
             out_plt=args.out_plt,
+            no_det=args.no_det,
         )
 
         plotter.plot()
@@ -127,6 +156,10 @@ def plotter_mode(args):
     except Exception as e:
         logger.error(f"Plotter - Exception encountered. Details:\n{e}", exc_info=True)
         raise e
+
+    finally:
+        end_time = time.time()
+        logger.info(f"Plotter - Time taken: {end_time - start_time} seconds")
 
 
 def main():
