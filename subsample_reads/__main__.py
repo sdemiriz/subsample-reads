@@ -166,8 +166,14 @@ def main():
     mapper.add_argument(
         "--end", required=True, help="End coordinate of the region to map."
     )
-    mapper.add_argument(
+    bed_output = mapper.add_mutually_exclusive_group()
+    bed_output.add_argument(
         "-d", "--bed-dir", default="bed/", help="Directory for output BED files."
+    )
+    bed_output.add_argument(
+        "--bed",
+        nargs="+",
+        help="BED file names (must match number of input BAM files).",
     )
     intervals = mapper.add_mutually_exclusive_group(required=True)
     intervals.add_argument(

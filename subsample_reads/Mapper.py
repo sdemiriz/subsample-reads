@@ -24,16 +24,23 @@ class Mapper(FileHandler):
         interval_length: Optional[str] = None,
         interval_count: Optional[str] = None,
         bed_dir: str = "bed/",
+        bed: Optional[list[str]] = None,
     ) -> None:
         """
         Constructor for class
         """
         logger.info("Mapper - Initialize Mapper")
 
-        self.make_bed_dir(path=bed_dir)
-
         self.bam_paths = bam_paths
-        self.bed_paths = self.get_bed_paths(bed_dir=self.bed_dir)
+        self.bed = bed
+
+        if bed is not None:
+            self.bed_paths = [Path(bed_file) for bed_file in bed]
+            for bed_path in self.bed_paths:
+                bed_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            self.make_bed_dir(path=bed_dir)
+            self.bed_paths = self.get_bed_paths(bed_dir=self.bed_dir)
 
         self.interval_length, self.interval_count = self.setup_intervals(
             interval_length=interval_length,
