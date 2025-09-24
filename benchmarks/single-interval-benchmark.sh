@@ -82,7 +82,7 @@ get_time(){
     grep $1 $2 | cut -d' ' -f2
 }
 
-OUTPUT=benchmarks/single-interval-benchmark-times.txt
+OUTPUT=benchmarks/single-interval-benchmark.txt
 make_table() {
 
     echo "tool(+mode)	real	user	sys" > $OUTPUT
