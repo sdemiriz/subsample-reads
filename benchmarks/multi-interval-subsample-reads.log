@@ -1,0 +1,6 @@
+usage: python -m subsample-reads [-h] {map,sample,compare,plot} ...
+python -m subsample-reads: error: unrecognized arguments: examples/multi-interval-benchmark-scaled.bed
+
+real	0m9.491s
+user	0m0.668s
+sys	0m0.194s

@@ -22,8 +22,13 @@ results/
 *fna
 HLA-LA/
 log/
+benchmarks/gatk-inputs
 
 !requirements.txt
 !tests/*.bam
 !tests/*.bam.bai
 !examples/*.bed
+!benchmarks/*.bed
+!benchmarks/*.sh
+!benchmarks/*.txt
+!benchmarks/*.log

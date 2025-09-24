@@ -1,0 +1,16 @@
+Using GATK jar /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar
+Running:
+    java -Dsamjdk.use_async_io_read_samtools=false -Dsamjdk.use_async_io_write_samtools=true -Dsamjdk.use_async_io_write_tribble=false -Dsamjdk.compression_level=2 -jar /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar DownsampleSam -P 0.1 -R 42 -S HighAccuracy -I examples/gatk-inputs/chr6-25000000-35000000.bam -O /dev/null
+Picked up JAVA_TOOL_OPTIONS: -Xmx2g
+15:32:43.290 INFO  NativeLibraryLoader - Loading libgkl_compression.so from jar:file:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar!/com/intel/gkl/native/libgkl_compression.so
+[Fri Sep 19 15:32:43 EDT 2025] DownsampleSam --INPUT examples/gatk-inputs/chr6-25000000-35000000.bam --OUTPUT /dev/null --STRATEGY HighAccuracy --RANDOM_SEED 42 --PROBABILITY 0.1 --ACCURACY 1.0E-4 --VERBOSITY INFO --QUIET false --VALIDATION_STRINGENCY STRICT --COMPRESSION_LEVEL 2 --MAX_RECORDS_IN_RAM 500000 --CREATE_INDEX false --CREATE_MD5_FILE false --help false --version false --showHidden false --USE_JDK_DEFLATER false --USE_JDK_INFLATER false
+[Fri Sep 19 15:32:43 EDT 2025] Executing as sdemiriz@nc10445 on Linux 4.18.0-553.63.1.el8_10.x86_64 amd64; OpenJDK 64-Bit Server VM 17.0.6+10; Deflater: Intel; Inflater: Intel; Provider GCS is available; Picard version: Version:4.6.1.0
+INFO	2025-09-19 15:32:44	SAMFileWriterFactory	Unknown file extension, assuming BAM format when writing file: file:///dev/null
+INFO	2025-09-19 15:33:53	DownsampleSam	Finished downsampling.
+INFO	2025-09-19 15:33:53	DownsampleSam	Kept 1955900 out of 19557440 reads (10.00%).
+[Fri Sep 19 15:33:53 EDT 2025] picard.sam.DownsampleSam done. Elapsed time: 1.17 minutes.
+Runtime.totalMemory()=1882857472
+
+real	1m13.760s
+user	1m10.977s
+sys	0m1.413s
