@@ -5,6 +5,8 @@ PIP := $(PYTHON) -m pip
 SR := python -m subsample_reads
 VENV_ACTIVATE := source venv/bin/activate
 EXAMPLE_DIR := examples
+BENCHMARKS_DIR := benchmarks
+PUBLICATION_DIR := publication
 
 install: requirements.txt
 	@echo "[INFO] Creating virtual environment and installing dependencies..."
@@ -71,6 +73,16 @@ algo-demo:
 	@echo "[INFO] The following step will fail without samtools being installed"
 	@echo "[INFO] Reads shown in the Application Notes figure (r2, r4, r5, r7, r10, r15, r14) should be present: "
 	samtools view $(OUT_BAM) | cut -f 1 | tr '\n' ' '
+
+
+single-interval:
+	@echo "[INFO] Running single interval benchmark..."
+	bash $(BENCHMARKS_DIR)/single-interval-benchmark.sh
+
+multi-interval:
+	@echo "[INFO] Running multi interval benchmark..."
+	bash $(BENCHMARKS_DIR)/multi-interval-benchmark.sh
+
 
 all: run-example run-example-prg algo-demo
 
