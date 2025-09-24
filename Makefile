@@ -1,4 +1,4 @@
-.PHONY: run-example run-example-prg example example-map example-prg example-map-prg activate install
+.PHONY: run-example run-example-prg example example-map example-prg example-map-prg figure-1 single-interval multi-interval activate install
 
 PYTHON := python
 PIP := $(PYTHON) -m pip
@@ -74,6 +74,9 @@ algo-demo:
 	@echo "[INFO] Reads shown in the Application Notes figure (r2, r4, r5, r7, r10, r15, r14) should be present: "
 	samtools view $(OUT_BAM) | cut -f 1 | tr '\n' ' '
 
+download-files:
+	@echo "[INFO] Downloading files for publication..."
+	bash $(PUBLICATION_DIR)/download-files.sh
 
 single-interval:
 	@echo "[INFO] Running single interval benchmark..."
@@ -83,12 +86,25 @@ multi-interval:
 	@echo "[INFO] Running multi interval benchmark..."
 	bash $(BENCHMARKS_DIR)/multi-interval-benchmark.sh
 
+figure-1:
+	@echo "[INFO] Running figure 1 example..."
+	bash $(PUBLICATION_DIR)/figure-1.sh
 
 all: run-example run-example-prg algo-demo
 
-clean:
-	@echo "Cleaning up created example files..."
-	rm -rf examples/*.bam
-	rm -rf examples/*.bam.bai
-	rm -rf examples/*.bed
-	rm -rf examples/*.png
+clean-examples:
+	@echo "Cleaning up example files..."
+	rm $(EXAMPLE_DIR)/*.bam
+	rm $(EXAMPLE_DIR)/*.bam.bai
+	rm $(EXAMPLE_DIR)/*.bed
+	rm $(EXAMPLE_DIR)/*.png
+
+clean-benchmarks:
+	@echo "[INFO] Cleaning up single-interval benchmark files..."
+	rm $(BENCHMARKS_DIR)/single-interval-*.log
+	rm $(BENCHMARKS_DIR)/gatk-inputs/single-interval-subset.bam*
+
+	@echo "[INFO] Cleaning up multi-interval benchmark files..."
+	rm $(BENCHMARKS_DIR)/multi-interval-*.log
+	rm $(BENCHMARKS_DIR)/gatk-inputs/*.bam*
+	

@@ -32,3 +32,4 @@ benchmarks/gatk-inputs
 !benchmarks/*.sh
 !benchmarks/*.txt
 !benchmarks/*.log
+!publication/*.sh
