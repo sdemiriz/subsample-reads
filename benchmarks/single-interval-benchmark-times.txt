@@ -1,8 +1,0 @@
-tool(+mode)	real	user	sys
-gatk-HighAccuracy	real	1m13.760s	user	1m10.977s	sys	0m1.413s
-gatk-ConstantMemory	real	0m36.945s	user	0m35.496s	sys	0m0.869s
-gatk-Chained	real	0m46.341s	user	0m45.177s	sys	0m0.802s
-gatk-DownsampleByDuplicateSet	real	0m3.913s	user	0m3.421s	sys	0m0.181s
-samtools	real	0m0.002s	user	0m0.000s	sys	0m0.001s
-sambamba	real	0m0.013s	user	0m0.001s	sys	0m0.000s
-subsample-reads	real	6m35.036s	user	5m38.473s	sys	0m12.176s
