@@ -1,0 +1,23 @@
+	Command being timed: "sambamba view -s 42.1 HG002.GRCh38.300x.bam chr6:25000000-35000000 -o benchmarks/outputs/single-interval-sambamba.bam"
+	User time (seconds): 35.38
+	System time (seconds): 12.15
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:48.39
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 61492
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 29
+	Minor (reclaiming a frame) page faults: 9540
+	Voluntary context switches: 4270
+	Involuntary context switches: 4012
+	Swaps: 0
+	File system inputs: 685328
+	File system outputs: 17092304
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

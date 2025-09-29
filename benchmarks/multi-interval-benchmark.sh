@@ -4,6 +4,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
 
+set -euo pipefail
+
 # Compare the runtime of different downsampling approach from various tools
 # Assumes GATK, samtools, and sambamba are installed and available
 # Assumes Python is available and subsample-reads hass all dependencies installed in a virtual environment
@@ -21,103 +23,100 @@ INTERVAL_LENGTH=1000
 INPUT_BAM=HG002.GRCh38.300x.bam
 SEED=42
 
-mkdir -p benchmarks/gatk-inputs
+INPUTS=benchmarks/gatk-inputs
+OUTPUTS=benchmarks/outputs
+mkdir -p $INPUTS
+mkdir -p $OUTPUTS
 
 # GATK downsampling cannot limit the operation to a specific interval, operating on the entire BAM file
 # The input BAM file is thus pre-processed using samtools first, which is not included in benchmarking
 echo "Pre-processing BAM files for GATK..."
 for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
 do
-    INTERVAL_BAM=benchmarks/gatk-inputs/${CHR}-${i}-$((i+INTERVAL_LENGTH)).bam
+    INTERVAL_BAM=$INPUTS/${CHR}-${i}-$((i+INTERVAL_LENGTH)).bam
     samtools view $INPUT_BAM $CHR:$i-$((i+INTERVAL_LENGTH)) -b -o $INTERVAL_BAM && \
     samtools index $INTERVAL_BAM
 done
 
-GATK_HIGH_ACCURACY=benchmarks/multi-interval-downsamplesam-HighAccuracy.log
 echo "Benchmarking GATK HighAccuracy..."
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        gatk DownsampleSam -P 0.1 -R $SEED -S HighAccuracy -I benchmarks/gatk-inputs/${CHR}-${i}-$((i+INTERVAL_LENGTH)).bam -O /dev/null
+GATK_HIGH_ACCURACY=$OUTPUTS/multi-interval-gatk-high-accuracy.log
+env time -o $GATK_HIGH_ACCURACY -v bash -c "
+    for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+        gatk DownsampleSam -P 0.1 -R \$SEED -S HighAccuracy -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-high-accuracy.bam
     done
-} 2> $GATK_HIGH_ACCURACY
+"
 
-GATK_CONSTANT_MEMORY=benchmarks/multi-interval-downsamplesam-ConstantMemory.log
 echo "Benchmarking GATK ConstantMemory..."
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        gatk DownsampleSam -P 0.1 -R $SEED -S ConstantMemory -I benchmarks/gatk-inputs/${CHR}-${i}-$((i+INTERVAL_LENGTH)).bam -O /dev/null
+GATK_CONSTANT_MEMORY=$OUTPUTS/multi-interval-gatk-constant-memory.log
+env time -o $GATK_CONSTANT_MEMORY -v bash -c "
+    for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+        gatk DownsampleSam -P 0.1 -R \$SEED -S ConstantMemory -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-constant-memory.bam
     done
-} 2> $GATK_CONSTANT_MEMORY
+"
 
-GATK_CHAINED=benchmarks/multi-interval-downsamplesam-Chained.log
 echo "Benchmarking GATK Chained..."
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        gatk DownsampleSam -P 0.1 -R $SEED -S Chained -I benchmarks/gatk-inputs/${CHR}-${i}-$((i+INTERVAL_LENGTH)).bam -O /dev/null
-    done
-} 2> $GATK_CHAINED
+GATK_CHAINED=$OUTPUTS/multi-interval-gatk-chained.log
+env time -o $GATK_CHAINED -v bash -c "
+        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+            gatk DownsampleSam -P 0.1 -R \$SEED -S Chained -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-chained.bam
+        done
+    "
 
-SAMTOOLS=benchmarks/multi-interval-samtools.log
-echo "Benchmarking samtools..."
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        samtools view -s $SEED.1 -b $INPUT_BAM $CHR:$i-$((i+INTERVAL_LENGTH)) -b -o /dev/null
-    done
-} 2> $SAMTOOLS
-
-SAMBAMBA=benchmarks/multi-interval-sambamba.log
-echo "Benchmarking sambamba..."
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        sambamba view -s 42.1 -b $INPUT_BAM $CHR:$i-$((i+INTERVAL_LENGTH)) -b -o /dev/null
-    done
-} 2> $SAMBAMBA
-
-GATK_DOWN_BY_DUP_SET=benchmarks/multi-interval-gatk-DownsampleByDuplicateSet.log
-echo "Benchmarking GATK DownsampleByDuplicateSet..."
 for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
 do
-    gatk AddOrReplaceReadGroups -I benchmarks/gatk-inputs/$CHR-$i-$((i+INTERVAL_LENGTH)).bam -O benchmarks/gatk-inputs/$CHR-$i-$((i+INTERVAL_LENGTH))-with-read-groups.bam -LB 1 -PL ILLUMINA -PU unit1 -SM HG002
+    gatk AddOrReplaceReadGroups -I $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH)).bam -O $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH))-with-read-groups.bam -LB 1 -PL ILLUMINA -PU unit1 -SM HG002
 done
-{
-    time for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-    do
-        gatk DownsampleByDuplicateSet --fraction-to-keep 0.1 -I benchmarks/gatk-inputs/$CHR-$i-$((i+INTERVAL_LENGTH))-with-read-groups.bam -O /dev/null
-    done
-} 2> $GATK_DOWN_BY_DUP_SET
 
+# echo "Benchmarking GATK DownsampleByDuplicateSet..."
+# GATK_DOWN_BY_DUP_SET=$OUTPUTS/multi-interval-gatk-downsample-by-dup-set.log
+# env time -o $GATK_DOWN_BY_DUP_SET -v bash -c "
+#         for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+#             gatk DownsampleByDuplicateSet --fraction-to-keep 0.1 -I $INPUTS/\$CHR-\$i-\$((i+INTERVAL_LENGTH))-with-read-groups.bam -O $OUTPUTS/gatk-downsample-by-dup-set.bam
+#         done
+#     "
+
+echo "Benchmarking samtools..."
+SAMTOOLS=$OUTPUTS/multi-interval-samtools.log
+env time -o $SAMTOOLS -v bash -c "
+        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+            samtools view -s \$SEED.1 -b \$INPUT_BAM \$CHR:\$i-\$((i+INTERVAL_LENGTH)) -b -o /benchmarks/outputs/samtools.bam
+        done
+    "
+
+SAMBAMBA=$OUTPUTS/multi-interval-sambamba.log
+echo "Benchmarking sambamba..."
+env time -o $SAMBAMBA -v bash -c "
+        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
+            sambamba view -s 42.1 \$INPUT_BAM \$CHR:\$i-\$((i+INTERVAL_LENGTH)) -o /benchmarks/outputs/sambamba.bam
+        done
+    "
 
 # subsample-reads mapping is also done outside of the benchmarking process
 # this assumes the virtual environment with all dependencies is already set up
 source venv/bin/activate && \
-python -m subsample_reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-length $INTERVAL_LENGTH --bed benchmarks/multi-interval-benchmark.bed && \
+python -m subsample_reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-length $INTERVAL_LENGTH --bed $OUTPUTS/multi-interval-benchmark.bed && \
 
-SUBSAMPLE_READS=benchmarks/multi-interval-subsample-reads.log
 echo "Benchmarking subsample-reads..."
-{
-    time python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM--bed benchmarks/multi-interval-benchmark.bed --out-bam /dev/null
-} 2> $SUBSAMPLE_READS
+SUBSAMPLE_READS=$OUTPUTS/multi-interval-subsample-reads.log
+env time -o $SUBSAMPLE_READS -v bash -c "
+    python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM--bed $OUTPUTS/multi-interval-benchmark.bed --out-bam $OUTPUTS/subsample-reads.bam
+"
 
 get_time(){
-    grep $1 $2 | cut -f2
+    grep $1 $2 | rev | cut -d' ' -f1 | rev
 }
 
 OUTPUT=benchmarks/multi-interval-benchmark.txt
 make_table() {
 
-    echo "tool(+mode)	real	user	sys" > $OUTPUT
-    echo "gatk-HighAccuracy	$(get_time real $GATK_HIGH_ACCURACY)	$(get_time user $GATK_HIGH_ACCURACY)	$(get_time sys $GATK_HIGH_ACCURACY)" >> $OUTPUT
-    echo "gatk-ConstantMemory	$(get_time real $GATK_CONSTANT_MEMORY)	$(get_time user $GATK_CONSTANT_MEMORY)	$(get_time sys $GATK_CONSTANT_MEMORY)" >> $OUTPUT
-    echo "gatk-Chained	$(get_time real $GATK_CHAINED)	$(get_time user $GATK_CHAINED)	$(get_time sys $GATK_CHAINED)" >> $OUTPUT
-    echo "gatk-DownsampleByDuplicateSet	$(get_time real $GATK_DOWN_BY_DUP_SET)	$(get_time user $GATK_DOWN_BY_DUP_SET)	$(get_time sys $GATK_DOWN_BY_DUP_SET)" >> $OUTPUT
-    echo "samtools	$(get_time real $SAMTOOLS)	$(get_time user $SAMTOOLS)	$(get_time sys $SAMTOOLS)" >> $OUTPUT
-    echo "sambamba	$(get_time real $SAMBAMBA)	$(get_time user $SAMBAMBA)	$(get_time sys $SAMBAMBA)" >> $OUTPUT
-    echo "subsample-reads	$(get_time real $SUBSAMPLE_READS)	$(get_time user $SUBSAMPLE_READS)	$(get_time sys $SUBSAMPLE_READS)" >> $OUTPUT
+    echo "Tool/Mode	User time	System time	Wall clock  Memory used" > $OUTPUT
+    echo "gatk-HighAccuracy	$(get_stat User $GATK_HIGH_ACCURACY)	$(get_stat System $GATK_HIGH_ACCURACY)	$(get_stat wall $GATK_HIGH_ACCURACY)    $(get_stat Maximum $GATK_HIGH_ACCURACY)KB" >> $OUTPUT
+    echo "gatk-ConstantMemory	$(get_stat User $GATK_CONSTANT_MEMORY)	$(get_stat System $GATK_CONSTANT_MEMORY)	$(get_stat wall $GATK_CONSTANT_MEMORY)  $(get_stat Maximum $GATK_CONSTANT_MEMORY)KB" >> $OUTPUT
+    echo "gatk-Chained	$(get_stat User $GATK_CHAINED)	$(get_stat System $GATK_CHAINED)	$(get_stat wall $GATK_CHAINED)  $(get_stat Maximum $GATK_CHAINED)KB" >> $OUTPUT
+    # echo "gatk-DownsampleByDuplicateSet	$(get_stat User $GATK_DOWN_BY_DUP_SET)	$(get_stat System $GATK_DOWN_BY_DUP_SET)	$(get_stat wall $GATK_DOWN_BY_DUP_SET)  $(get_stat Maximum $GATK_DOWN_BY_DUP_SET)KB" >> $OUTPUT
+    echo "samtools	$(get_stat User $SAMTOOLS)	$(get_stat System $SAMTOOLS)	$(get_stat wall $SAMTOOLS   $(get_stat Maximum $SAMTOOLS))KB" >> $OUTPUT
+    echo "sambamba	$(get_stat User $SAMBAMBA)	$(get_stat System $SAMBAMBA)	$(get_stat wall $SAMBAMBA)  $(get_stat Maximum $SAMBAMBA)KB" >> $OUTPUT
+    echo "subsample-reads	$(get_stat User $SUBSAMPLE_READS)	$(get_stat System $SUBSAMPLE_READS)	$(get_stat wall $SUBSAMPLE_READS) $(get_stat Maximum $SUBSAMPLE_READS)KB" >> $OUTPUT
 }
 
 make_table
