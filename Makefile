@@ -71,7 +71,7 @@ algo-demo:
 	$(VENV_ACTIVATE) && $(SR) sample --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
 	
 	@echo "[INFO] The following step will fail without samtools being installed"
-	@echo "[INFO] Reads shown in the Application Notes figure (r2, r4, r5, r7, r10, r15, r14) should be present: "
+	@echo "[INFO] Reads shown in Figure 1 (r2, r4, r5, r7, r10, r14, r15) should be present: "
 	samtools view $(OUT_BAM) | cut -f 1 | tr '\n' ' '
 
 download-files:
@@ -90,8 +90,6 @@ figure-1:
 	@echo "[INFO] Running figure 1 example..."
 	bash $(PUBLICATION_DIR)/figure-1.sh
 
-all: run-example run-example-prg algo-demo
-
 clean-examples:
 	@echo "Cleaning up example files..."
 	rm $(EXAMPLE_DIR)/*.bam
@@ -103,8 +101,10 @@ clean-benchmarks:
 	@echo "[INFO] Cleaning up single-interval benchmark files..."
 	rm $(BENCHMARKS_DIR)/single-interval-*.log
 	rm $(BENCHMARKS_DIR)/gatk-inputs/single-interval-subset.bam*
+	rm $(BENCHMARKS_DIR)/outputs/*.bam*
 
 	@echo "[INFO] Cleaning up multi-interval benchmark files..."
 	rm $(BENCHMARKS_DIR)/multi-interval-*.log
-	rm $(BENCHMARKS_DIR)/gatk-inputs/*.bam*
+	rm -f $(BENCHMARKS_DIR)/gatk-inputs/*.bam*
+	rm $(BENCHMARKS_DIR)/outputs/*.bam*
 	
