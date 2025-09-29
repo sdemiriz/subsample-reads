@@ -23,33 +23,6 @@ If you do not work with the tool HLA\*LA, you can safely ignore everything writt
   python -m subsample_reads
   ```
 
-## Prepared examples:
-
-A demo Makefile is available at the repository root with example workflows.
-
-```bash
-make run-example
-make run-example-prg
-make algo-demo
-```
-
-A Python `venv` will be created from `requirements.txt` before the tool is run. Everything produced during these steps is contained in the `examples/` directory.
-
-The first two will each generate a BAM file, and run the full `map` -> `sample` -> `plot` core workflow and demonstrate the commands. The BAM files generated are small enough to be human readable to allow confirmation that the tool works as intended. Each read is 100 bases long with numbered names for easy reading and falls fully inside 10 intervals each 100 bases long.
-
-`run-example` should produce a BAM file that contains only chr6-aligned reads with the plot outputs showing a distinct increasing staircase pattern in both coverage and read count.
-
-`run-example-prg` should produce identical plots as `run-example` but the starting BAM file also contains a mix of PRG reads, distinguishable by their read names from chr6-aligned reads. When the tool has completed, the downsampled output should contain a mix of chr6-aligned and PRG-aligned reads from the input.
-
-`algo-demo` will generate a minimal example with a few reads and limited scope for generating an accompanying figure. The output of this rule will list a number of read names that should match those in the figure. **Requires samtools to be available**
-
-Other available commands:
-```
-make all      : Run all rules from above
-make clean    : Delete created BAM, BED files and plot images.
-```
-
-
 ## Usage:
 
 ### 1. Mapping
@@ -71,6 +44,7 @@ python -m subsample_reads map [options]
 
 # Optional
 --bed-dir DIR               : Directory for output BED files (default: bed/).
+--bed BED [BED ...]         : Specific BED file names (must match number of input BAM files).
 ```
 
 ### Example:
@@ -140,8 +114,8 @@ python -m subsample_reads compare [options]
 ### Example:
 ```bash
 python -m subsample_reads compare \
-  --bam_left sample1.bam \
-  --bam_right sample1-downsampled.bam \
+  --bam-left sample1.bam \
+  --bam-right sample1-downsampled.bam \
   --out sample1-overlap.tsv
 ```
 
@@ -163,6 +137,7 @@ python -m subsample_reads plot [options]
 
 # Optional
 --out-plt PNG     : Output plot file (default: `out.png`).
+--no-det          : No details (do not add interval boundaries or legend.)
 ```
 
 ### Example:
@@ -179,7 +154,12 @@ python -m subsample_reads plot \
 
 ## Logging
 
-Log files are written to the `log/` directory for each run. Filenames contain timestamp and name of invoked command.
+Log files are automatically created in the `log/` directory for each command execution. Filenames contain timestamp and invoked function name. Each log file includes:
+
+- User command line input for reproducibility
+- Execution time
+- Detailed error messages and stack traces (if errors occur)
+- Processing status updates
 
 ## Testing
 
@@ -188,3 +168,74 @@ Run the `unittest` suite via
 ```
 python -m unittest
 ```
+
+## Examples:
+
+A Makefile is available at the repository root with example workflows.
+
+```bash
+make run-example
+make run-example-prg
+make algo-demo
+make clean-examples
+```
+
+A Python `venv` will be created from `requirements.txt` before the tool is run. Everything produced during these steps can be found in the `examples/` directory.
+
+The first two commands will each generate a small example BAM file, and run the full `map` -> `sample` -> `plot` core workflow and demonstrate the commands. The BAM files generated are small enough to be human readable to allow confirmation that the tool works as intended. Each read is 100 bases long with numbered names for readability and falls fully inside 10 intervals each 100 bases long.
+
+`run-example` should produce a BAM file that contains only chr6-aligned reads with the plot outputs showing a distinct increasing staircase pattern in both coverage and read count.
+
+`run-example-prg` should produce identical plots as `run-example` but the starting BAM file also contains a mix of PRG reads, distinguishable by their read names from chr6-aligned reads. When the tool has completed, the downsampled output should contain a mix of chr6-aligned and PRG-aligned reads from the input.
+
+`algo-demo` will generate a minimal example with a few reads and limited scope for generating an accompanying figure. The output of this rule will list a number of read names that should match those in the figure. **Requires samtools to be available**
+
+`clean-examples` will clean the example directory of all created files as a result of running previous commands.
+
+### Data Download
+
+```bash
+make download-files
+```
+This command will download the default files for the benchmarking process. `HG002.GRCh38.300x.bam` from Genome in A Bottle (GIAB) and `HG00157.bam` from Thousand Genomes (1KG) will be downloaded (>500GB total). **HG00157 is downloaded in CRAM format and is then converted to BAM format and indexed using `samtools` and thus the availability of `samtools` is a requirement.**
+
+## Benchmarks
+
+```bash
+make single-interval
+make multi-interval
+make clean-benchmarks
+```
+
+The `benchmarks/` directory contains benchmark scripts that compares `subsample-reads` against uniform downsampling tools in a single- or multi-interval scenarios.
+
+The default values benchmark performance in a padded HLA region (chr6:25000000-35000000) using a single interval or 1000 intervals. These coordinates and values can be tweaked easily for further benchmarking using the top-level variables in each script.
+
+Results are saved to `benchmarks/single-interval-benchmark.txt` and `benchmarks/multi-interval-benchmark.txt` respectively, with timing and memory usage statistics.
+
+## Publication
+
+The `publication/` directory contains scripts and data for generating publication figures.
+
+```bash
+make figure-1
+```
+
+Generates the underlying plots for figure 1 comparing `subsample-reads` non-uniform downsampling with samtools on HLA region. Produces `figure-1.png` and `figure-1-samtools.png` in the same directory as the script.
+
+
+## Future
+
+* Provide BED templates to `map` that contain interval coordinates but not read counts as a "proto-template" that can then be filled out. An example use case would be a scenario when intron and exon regions that are not regularly spaced in the genome that could be downsampled.
+
+* Expand the BED template format to be able to accommodate multiple chromosomal regions or the ability to provide multiple BED templates at the same time and produce a final downsampled BAM file that contains the compbined outputs of all downsamplings.
+
+* Tweaks to output file handling where a "prefix" (destination directory, filename start) can be defined and multiple outputs that share the "prefix" can be produced without needing to be explicitly named at the command line. (I think PLINK does this already?) This can help split the `plot` outputs into separate files among other uses.
+
+* Multi/parallel processing of parts of BAM files to speed up processing.
+
+* Optimize read-interval overlap searching using `numpy` array based approaches rather than base Python looping.
+
+* Add warning or handling for intervals of lesser length than the read length of the files used.
+
+---
