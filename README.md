@@ -186,13 +186,13 @@ The first two commands will each generate a small example BAM file, and run the 
 
 `run-example` should produce a BAM file that contains only chr6-aligned reads with the plot outputs showing a distinct increasing staircase pattern in both coverage and read count.
 
-`run-example-prg` should produce identical plots as `run-example` but the starting BAM file also contains a mix of PRG reads, distinguishable by their read names from chr6-aligned reads. When the tool has completed, the downsampled output should contain a mix of chr6-aligned and PRG-aligned reads from the input.
+`run-example-prg` should produce identical plots as `run-example` but the starting BAM file also contains a mix of PRG reads, distinguishable by their read names from chr6-aligned reads. When the tool completes, the downsampled output should contain a mix of chr6-aligned and PRG-aligned reads from the input.
 
 `algo-demo` will generate a minimal example with a few reads and limited scope for generating an accompanying figure. The output of this rule will list a number of read names that should match those in the figure. **Requires samtools to be available**
 
 `clean-examples` will clean the example directory of all created files as a result of running previous commands.
 
-### Data Download
+## Data Download
 
 ```bash
 make download-files
