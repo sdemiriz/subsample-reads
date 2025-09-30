@@ -6,6 +6,12 @@
 
 set -euo pipefail
 
+module load java
+module load gatk
+module load picard
+module load samtools
+module load sambamba
+
 # Compare the runtime of different downsampling approach from various tools
 # Assumes GATK, samtools, and sambamba are installed and available
 # Assumes Python is available and subsample-reads hass all dependencies installed in a virtual environment
@@ -40,32 +46,20 @@ done
 
 echo "Benchmarking GATK HighAccuracy..."
 GATK_HIGH_ACCURACY=$OUTPUTS/multi-interval-gatk-high-accuracy.log
-env time -o $GATK_HIGH_ACCURACY -v bash -c "
-    for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
-        gatk DownsampleSam -P 0.1 -R \$SEED -S HighAccuracy -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-high-accuracy.bam
-    done
-"
+env time -v -o $GATK_HIGH_ACCURACY ./benchmarks/gatk-highaccuracy.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
 echo "Benchmarking GATK ConstantMemory..."
 GATK_CONSTANT_MEMORY=$OUTPUTS/multi-interval-gatk-constant-memory.log
-env time -o $GATK_CONSTANT_MEMORY -v bash -c "
-    for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
-        gatk DownsampleSam -P 0.1 -R \$SEED -S ConstantMemory -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-constant-memory.bam
-    done
-"
+env time -v -o $GATK_CONSTANT_MEMORY ./benchmarks/gatk-constant-memory.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
+
 
 echo "Benchmarking GATK Chained..."
-GATK_CHAINED=$OUTPUTS/multi-interval-gatk-chained.log
-env time -o $GATK_CHAINED -v bash -c "
-        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
-            gatk DownsampleSam -P 0.1 -R \$SEED -S Chained -I benchmarks/gatk-inputs/\${CHR}-\${i}-\$((i+INTERVAL_LENGTH)).bam -O /benchmarks/outputs/gatk-chained.bam
-        done
-    "
+env time -v -o $GATK_CHAINED ./benchmarks/gatk-chained.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
-for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
-do
-    gatk AddOrReplaceReadGroups -I $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH)).bam -O $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH))-with-read-groups.bam -LB 1 -PL ILLUMINA -PU unit1 -SM HG002
-done
+# for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
+# do
+#     gatk AddOrReplaceReadGroups -I $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH)).bam -O $INPUTS/$CHR-$i-$((i+INTERVAL_LENGTH))-with-read-groups.bam -LB 1 -PL ILLUMINA -PU unit1 -SM HG002
+# done
 
 # echo "Benchmarking GATK DownsampleByDuplicateSet..."
 # GATK_DOWN_BY_DUP_SET=$OUTPUTS/multi-interval-gatk-downsample-by-dup-set.log
@@ -77,19 +71,11 @@ done
 
 echo "Benchmarking samtools..."
 SAMTOOLS=$OUTPUTS/multi-interval-samtools.log
-env time -o $SAMTOOLS -v bash -c "
-        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
-            samtools view -s \$SEED.1 -b \$INPUT_BAM \$CHR:\$i-\$((i+INTERVAL_LENGTH)) -b -o /benchmarks/outputs/samtools.bam
-        done
-    "
+env time -v -o $SAMTOOLS ./benchmarks/samtools.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
 SAMBAMBA=$OUTPUTS/multi-interval-sambamba.log
 echo "Benchmarking sambamba..."
-env time -o $SAMBAMBA -v bash -c "
-        for i in \$(seq \${START} \${INTERVAL_LENGTH} \$((END-INTERVAL_LENGTH))); do
-            sambamba view -s 42.1 \$INPUT_BAM \$CHR:\$i-\$((i+INTERVAL_LENGTH)) -o /benchmarks/outputs/sambamba.bam
-        done
-    "
+env time -v -o $SAMBAMBA ./benchmarks/sambamba.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
 # subsample-reads mapping is also done outside of the benchmarking process
 # this assumes the virtual environment with all dependencies is already set up
@@ -106,7 +92,7 @@ get_time(){
     grep $1 $2 | rev | cut -d' ' -f1 | rev
 }
 
-OUTPUT=benchmarks/multi-interval-benchmark.txt
+OUTPUT=benchmarks/multi-interval-benchmark.tsv
 make_table() {
 
     echo "Tool/Mode	User time	System time	Wall clock  Memory used" > $OUTPUT
