@@ -32,7 +32,7 @@ def configure_logging(mode):
 
     # Log the command line invocation for reproducibility
     command_line = sys.argv.copy()
-    command_line[0] = "python -m subsample_reads"
+    command_line[0] = "subsample-reads"
     command_line = " ".join(command_line)
     logger.info(f"Command: {command_line}")
     logger.info("Begin log")
