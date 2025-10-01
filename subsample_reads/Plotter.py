@@ -187,29 +187,37 @@ class Plotter(FileHandler):
         """Add fractions to represent distribution values to supplied axis"""
         logger.info("Plotter - Add fraction annotations")
 
+        y = ax.get_ylim()[1] * 0.97
+        ha = "center"
+        color = "black"
+        size = "x-small"
+        zorder = 2
+
         for row in self.intervals.bed.iterrows():
+
+            x = (row[1]["start"] + row[1]["end"]) / 2
             try:
                 ax.text(
                     x=(row[1]["start"] + row[1]["end"]) / 2,
-                    y=ax.get_ylim()[1] * 0.99,
+                    y=y,
                     s=str(row[1]["read_count"] / sum(self.intervals.bed["read_count"]))[
                         :5
                     ],
-                    ha="center",
-                    color="black",
-                    size="x-small",
-                    zorder=2,
+                    ha=ha,
+                    color=color,
+                    size=size,
+                    zorder=zorder,
                 )
             except ZeroDivisionError:
                 logger.info(f"Plotter - An interval contains zero reads")
                 ax.text(
-                    x=(row[1]["start"] + row[1]["end"]) / 2,
-                    y=ax.get_ylim()[1] * 0.99,
+                    x=x,
+                    y=y,
                     s="0",
-                    ha="center",
-                    color="black",
-                    size="x-small",
-                    zorder=2,
+                    ha=ha,
+                    color=color,
+                    size=size,
+                    zorder=zorder,
                 )
 
     def add_barplot(self, ax):
