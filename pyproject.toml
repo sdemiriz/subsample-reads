@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["subsample_reads*"]
+
+[project]
+name = "subsample-reads"
+version = "0.1.0"
+description = "Toolkit for mapping, non-uniform sampling, and plotting BAM files"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.10.0",
+    "numpy>=2.2.2",
+    "pandas>=2.2.3",
+    "pysam>=0.22.1",
+    "pytest>=8.4.2",
+    "tqdm>=4.67.1",
+    "intervaltree>=3.1.0",
+]
+
+[project.scripts]
+subsample-reads = "subsample_reads.__main__:main"

@@ -78,13 +78,12 @@ echo "Benchmarking sambamba..."
 env time -v -o $SAMBAMBA ./benchmarks/sambamba.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
 # subsample-reads mapping is also done outside of the benchmarking process
-# this assumes the virtual environment with all dependencies is already set up
-source venv/bin/activate && \
-python -m subsample_reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-length $INTERVAL_LENGTH --bed $OUTPUTS/multi-interval-benchmark.bed && \
+# Assumes subsample-reads is installed and available
+subsample-reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-length $INTERVAL_LENGTH --bed $OUTPUTS/multi-interval-benchmark.bed && \
 
 echo "Benchmarking subsample-reads..."
 SUBSAMPLE_READS=$OUTPUTS/multi-interval-subsample-reads.log
-env time -o $SUBSAMPLE_READS -v python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM --bed $OUTPUTS/multi-interval-benchmark.bed --out-bam $OUTPUTS/subsample-reads.bam
+env time -o $SUBSAMPLE_READS -v subsample-reads sample --seed $SEED --in-bam $INPUT_BAM --bed $OUTPUTS/multi-interval-benchmark.bed --out-bam $OUTPUTS/subsample-reads.bam
 
 get_stat(){
     grep $1 $2 | rev | cut -d' ' -f1 | rev

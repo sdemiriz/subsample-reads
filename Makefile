@@ -1,8 +1,8 @@
-.PHONY: run-example run-example-prg example example-map example-prg example-map-prg figure-1 single-interval multi-interval activate install
+.PHONY: run-example run-example-prg example example-map example-prg example-map-prg figure-1 single-interval multi-interval activate install test test-filehandler test-loader test-mapper test-intervals test-comparator test-plotter
 
 PYTHON := python
 PIP := $(PYTHON) -m pip
-SR := python -m subsample_reads
+SR := subsample-reads
 VENV_ACTIVATE := source venv/bin/activate
 EXAMPLE_DIR := examples
 BENCHMARKS_DIR := benchmarks
@@ -38,13 +38,13 @@ run-example: PLT = $(EXAMPLE_DIR)/example-out.png
 run-example: example example-map
 	
 	@echo "[STEP 1] Mapping example..."
-	$(VENV_ACTIVATE) && $(SR) map --in-bam $(MAP_BAM) --contig chr1 --start 100 --end 1100 --interval-count 10 --bed-dir $(EXAMPLE_DIR)
+	$(SR) map --in-bam $(MAP_BAM) --contig chr1 --start 100 --end 1100 --interval-count 10 --bed-dir $(EXAMPLE_DIR)
 
 	@echo "[STEP 2] Sampling example..."
-	$(VENV_ACTIVATE) && $(SR) sample --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
+	$(SR) sample --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
 
 	@echo "[STEP 3] Plotting example..."
-	$(VENV_ACTIVATE) && $(SR) plot --in-bam $(IN_BAM) --map-bam $(MAP_BAM) --out-bam $(OUT_BAM) --bed $(BED) --out-plt $(PLT)
+	$(SR) plot --in-bam $(IN_BAM) --map-bam $(MAP_BAM) --out-bam $(OUT_BAM) --bed $(BED) --out-plt $(PLT)
 
 run-example-prg: IN_BAM = $(EXAMPLE_DIR)/example-prg.bam
 run-example-prg: MAP_BAM = $(EXAMPLE_DIR)/example-prg-map.bam
@@ -54,13 +54,13 @@ run-example-prg: PLT = $(EXAMPLE_DIR)/example-prg-out.png
 run-example-prg: example-prg example-map-prg
 
 	@echo "[STEP 1] Mapping PRG example..."
-	$(VENV_ACTIVATE) && $(SR) map --in-bam $(MAP_BAM) --contig chr6 --start 29941260 --end 29942260 --interval-count 10 --bed-dir $(EXAMPLE_DIR)
+	$(SR) map --in-bam $(MAP_BAM) --contig chr6 --start 29941260 --end 29942260 --interval-count 10 --bed-dir $(EXAMPLE_DIR)
 
 	@echo "[STEP 2] Sampling PRG example..."
-	$(VENV_ACTIVATE) && $(SR) sample --prg GRCh38 --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
+	$(SR) sample --prg GRCh38 --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
 
 	@echo "[STEP 3] Plotting PRG example..."
-	$(VENV_ACTIVATE) && $(SR) plot --in-bam $(IN_BAM) --map-bam $(MAP_BAM) --out-bam $(OUT_BAM) --bed $(BED) --out-plt $(PLT)
+	$(SR) plot --in-bam $(IN_BAM) --map-bam $(MAP_BAM) --out-bam $(OUT_BAM) --bed $(BED) --out-plt $(PLT)
 
 algo-demo: IN_BAM = $(EXAMPLE_DIR)/algo-demo.bam
 algo-demo: BED = $(EXAMPLE_DIR)/algo-demo.bed
@@ -68,7 +68,7 @@ algo-demo: OUT_BAM = $(EXAMPLE_DIR)/algo-demo-out.bam
 algo-demo:
 	@echo "[INFO] Running algorithm demo..."
 	$(VENV_ACTIVATE) && $(PYTHON) $(EXAMPLE_DIR)/algo_demo.py
-	$(VENV_ACTIVATE) && $(SR) sample --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
+	$(SR) sample --in-bam $(IN_BAM) --bed $(BED) --out-bam $(OUT_BAM)
 	
 	@echo "[INFO] The following step will fail without samtools being installed"
 	@echo "[INFO] Reads shown in Figure 1 (r2, r4, r5, r7, r10, r14, r15) should be present: "
@@ -91,7 +91,7 @@ figure-1:
 	bash $(PUBLICATION_DIR)/figure-1.sh
 
 clean-examples:
-	@echo "Cleaning up example files..."
+	@echo "[INFO] Cleaning up example files..."
 	rm $(EXAMPLE_DIR)/*.bam
 	rm $(EXAMPLE_DIR)/*.bam.bai
 	rm $(EXAMPLE_DIR)/*.bed
@@ -108,3 +108,31 @@ clean-benchmarks:
 	rm -f $(BENCHMARKS_DIR)/gatk-inputs/*.bam*
 	rm $(BENCHMARKS_DIR)/outputs/*.bam*
 	
+test-filehandler:
+	@echo "[INFO] Running FileHandler tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_filehandler.py -v
+
+test-loader:
+	@echo "[INFO] Running Loader tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_loader.py -v
+
+test-mapper:
+	@echo "[INFO] Running Mapper tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_mapper.py -v
+
+test-intervals:
+	@echo "[INFO] Running Intervals tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_intervals.py -v
+
+test-comparator:
+	@echo "[INFO] Running Comparator tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_comparator.py -v
+
+test-plotter:
+	@echo "[INFO] Running Plotter tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/test_plotter.py -v
+
+test:
+	@echo "[INFO] Running all tests..."
+	$(VENV_ACTIVATE) && $(PYTHON) -m pytest test/ -v
+

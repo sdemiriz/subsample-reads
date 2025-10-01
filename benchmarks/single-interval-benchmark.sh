@@ -59,14 +59,13 @@ SAMBAMBA=$OUTPUTS/single-interval-sambamba.log
 env time -o $SAMBAMBA -v sambamba view -s $SEED.1 $INPUT_BAM $CHR:$START-$END -o $OUTPUTS/single-interval-sambamba.bam
 
 # subsample-reads mapping is also done outside of the benchmarking process
-# Assumes the virtual environment with all dependencies is already set up
+# Assumes subsample-reads is installed and available
 TEMPLATE=$OUTPUTS/single-interval-benchmark.bed
-source venv/bin/activate && \
-python -m subsample_reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-count 1 --bed $TEMPLATE
+subsample-reads map --in-bam $INPUT_BAM --contig $CHR --start $START --end $END --interval-count 1 --bed $TEMPLATE
 
 echo "Benchmarking subsample-reads..."
 SUBSAMPLE_READS=$OUTPUTS/single-interval-subsample-reads.log
-env time -o $SUBSAMPLE_READS -v python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM --bed $TEMPLATE --out-bam $OUTPUTS/single-interval-subsample-reads.bam
+env time -o $SUBSAMPLE_READS -v subsample-reads sample --seed $SEED --in-bam $INPUT_BAM --bed $TEMPLATE --out-bam $OUTPUTS/single-interval-subsample-reads.bam
 
 # Get last value in line from grepped file
 get_stat(){

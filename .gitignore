@@ -1,6 +1,8 @@
 # Virtual environment and cache
 venv/
 */__pycache__/
+.pytest_cache/
+.cursor/
 
 # Common files
 *png
@@ -16,6 +18,7 @@ venv/
 *gz
 *csv
 *tsv
+*egg-info/
 !requirements.txt
 
 # Scripts and notebooks
@@ -27,12 +30,15 @@ Snakefile
 .snakemake/
 config/
 results/
+
+# HLA-LA
 HLA-LA/
+
+# HPC
 slurm*.out
 
 # Directories
 log/
-benchmarks/
 !benchmarks/*.sh
 !publication/*.sh
 
