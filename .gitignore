@@ -1,5 +1,8 @@
+# Virtual environment and cache
 venv/
 */__pycache__/
+
+# Common files
 *png
 *bam
 *bai
@@ -7,29 +10,32 @@ venv/
 *cram
 *fa
 *fai
-*ipynb
+*.fa
+*fna
 *txt
 *gz
-*sh
 *csv
 *tsv
-slurm*.out
+!requirements.txt
+
+# Scripts and notebooks
+*ipynb
+*sh
+
+# Pipeline files
 Snakefile
 .snakemake/
 config/
 results/
-*.fa
-*fna
 HLA-LA/
-log/
-benchmarks/gatk-inputs
+slurm*.out
 
-!requirements.txt
+# Directories
+log/
+benchmarks/
+!benchmarks/*.sh
+!publication/*.sh
+
+# Test files
 !tests/*.bam
 !tests/*.bam.bai
-!examples/*.bed
-!benchmarks/*.bed
-!benchmarks/*.sh
-!benchmarks/*.txt
-!benchmarks/*.log
-!publication/*.sh
