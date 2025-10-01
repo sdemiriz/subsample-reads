@@ -16,6 +16,7 @@ If you do not work with the tool HLA\*LA, you can safely ignore everything writt
   ```
 2. Install dependencies (ideally in a virtual environment):
   ```bash
+  python -m venv venv
   pip install -r requirements.txt
   ```
 3. Test run:

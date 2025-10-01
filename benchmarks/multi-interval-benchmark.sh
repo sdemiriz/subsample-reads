@@ -52,8 +52,8 @@ echo "Benchmarking GATK ConstantMemory..."
 GATK_CONSTANT_MEMORY=$OUTPUTS/multi-interval-gatk-constant-memory.log
 env time -v -o $GATK_CONSTANT_MEMORY ./benchmarks/gatk-constant-memory.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
-
 echo "Benchmarking GATK Chained..."
+GATK_CHAINED=$OUTPUTS/multi-interval-gatk-chained.log
 env time -v -o $GATK_CHAINED ./benchmarks/gatk-chained.sh $CHR $START $END $INTERVAL_LENGTH $INPUT_BAM $SEED $INPUTS $OUTPUTS
 
 # for i in $(seq ${START} ${INTERVAL_LENGTH} $((END-INTERVAL_LENGTH)));
@@ -84,11 +84,9 @@ python -m subsample_reads map --in-bam $INPUT_BAM --contig $CHR --start $START -
 
 echo "Benchmarking subsample-reads..."
 SUBSAMPLE_READS=$OUTPUTS/multi-interval-subsample-reads.log
-env time -o $SUBSAMPLE_READS -v bash -c "
-    python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM--bed $OUTPUTS/multi-interval-benchmark.bed --out-bam $OUTPUTS/subsample-reads.bam
-"
+env time -o $SUBSAMPLE_READS -v python -m subsample_reads sample --seed $SEED --in-bam $INPUT_BAM --bed $OUTPUTS/multi-interval-benchmark.bed --out-bam $OUTPUTS/subsample-reads.bam
 
-get_time(){
+get_stat(){
     grep $1 $2 | rev | cut -d' ' -f1 | rev
 }
 
@@ -100,9 +98,10 @@ make_table() {
     echo "gatk-ConstantMemory	$(get_stat User $GATK_CONSTANT_MEMORY)	$(get_stat System $GATK_CONSTANT_MEMORY)	$(get_stat wall $GATK_CONSTANT_MEMORY)  $(get_stat Maximum $GATK_CONSTANT_MEMORY)KB" >> $OUTPUT
     echo "gatk-Chained	$(get_stat User $GATK_CHAINED)	$(get_stat System $GATK_CHAINED)	$(get_stat wall $GATK_CHAINED)  $(get_stat Maximum $GATK_CHAINED)KB" >> $OUTPUT
     # echo "gatk-DownsampleByDuplicateSet	$(get_stat User $GATK_DOWN_BY_DUP_SET)	$(get_stat System $GATK_DOWN_BY_DUP_SET)	$(get_stat wall $GATK_DOWN_BY_DUP_SET)  $(get_stat Maximum $GATK_DOWN_BY_DUP_SET)KB" >> $OUTPUT
-    echo "samtools	$(get_stat User $SAMTOOLS)	$(get_stat System $SAMTOOLS)	$(get_stat wall $SAMTOOLS   $(get_stat Maximum $SAMTOOLS))KB" >> $OUTPUT
+    echo "samtools	$(get_stat User $SAMTOOLS)	$(get_stat System $SAMTOOLS)	$(get_stat wall $SAMTOOLS)   $(get_stat Maximum $SAMTOOLS)KB" >> $OUTPUT
     echo "sambamba	$(get_stat User $SAMBAMBA)	$(get_stat System $SAMBAMBA)	$(get_stat wall $SAMBAMBA)  $(get_stat Maximum $SAMBAMBA)KB" >> $OUTPUT
     echo "subsample-reads	$(get_stat User $SUBSAMPLE_READS)	$(get_stat System $SUBSAMPLE_READS)	$(get_stat wall $SUBSAMPLE_READS) $(get_stat Maximum $SUBSAMPLE_READS)KB" >> $OUTPUT
 }
 
 make_table
+echo "Benchmarking completed"
