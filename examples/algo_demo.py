@@ -94,3 +94,14 @@ for read in reads:
 
 out_bam.close()
 pysam.index(out_file)
+
+
+def make_bed():
+
+    intervals = [("chr1", 1000, 2000, 5), ("chr1", 2000, 3000, 3)]
+    with open("examples/algo-demo.bed", "w") as f:
+        for chrom, start, end, count in intervals:
+            f.write(f"{chrom}\t{start}\t{end}\t{count}\n")
+
+
+make_bed()
