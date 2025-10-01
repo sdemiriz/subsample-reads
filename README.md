@@ -237,8 +237,6 @@ Generates the underlying plots for figure 1 comparing `subsample-reads` non-unif
 
 * Multi/parallel processing of parts of BAM files to speed up processing.
 
-* Optimize read-interval overlap searching using `numpy` array based approaches rather than base Python looping.
-
 * Add warning or handling for intervals of lesser length than the read length of the files used.
 
 ---
