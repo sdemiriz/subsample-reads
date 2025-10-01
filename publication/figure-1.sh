@@ -16,11 +16,11 @@ SEED=42
 source venv/bin/activate && \
 python -m subsample_reads map --in-bam $MAP_BAM --contig $CHR --start $START  --end $END --interval-count 30 --bed $BED && \
 python -m subsample_reads sample --seed $SEED --in-bam $IN_BAM --bed $BED --out-bam $OUT_BAM && \
-python -m subsample_reads plot --no-det --in-bam $IN_BAM --map-bam $MAP_BAM --out-bam $OUT_BAM --bed $BED --out-plt $OUT_PLT
+python -m subsample_reads plot --no-det --out-bam $OUT_BAM --bed $BED --out-plt $OUT_PLT
 
 SAMTOOLS_OUT_BAM=$PUBLICATION_DIR/figure-1-samtools.bam
 SAMTOOLS_OUT_PLT=$PUBLICATION_DIR/figure-1-samtools.png
 
 samtools view -b $IN_BAM $CHR:$START-$END -s $SEED.1 -o $SAMTOOLS_OUT_BAM && \
 samtools index $SAMTOOLS_OUT_BAM && \
-python -m subsample_reads plot --in-bam $IN_BAM --out-bam $SAMTOOLS_OUT_BAM --bed $BED --out-plt $SAMTOOLS_OUT_PLT
+python -m subsample_reads plot --no-det --out-bam $SAMTOOLS_OUT_BAM --bed $BED --out-plt $SAMTOOLS_OUT_PLT
