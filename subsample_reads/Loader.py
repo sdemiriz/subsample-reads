@@ -101,6 +101,14 @@ class Loader(FileHandler):
         self.seeds = self.get_interval_seeds(main_seed=self.main_seed)
         self.buckets = self.setup_buckets()
 
+        # Pre-compute interval arrays for overlap detection
+        self.interval_starts = np.array(
+            [interval.begin for interval in self.intervals.tree]
+        )
+        self.interval_ends = np.array(
+            [interval.end for interval in self.intervals.tree]
+        )
+
         # Pad the interval range by 1000bp to account for overhangs
         overhang = 1000
         region_start, region_end = self.intervals.start, self.intervals.end
@@ -535,24 +543,48 @@ class Loader(FileHandler):
         # Return header as object
         return pysam.AlignmentHeader.from_dict(header_dict=header)
 
+    # def add_read_to_bucket(
+    #     self, read: pysam.AlignedSegment, buckets: list[list[pysam.AlignedSegment]]
+    # ):
+    #     """
+    #     Use IntervalTree to efficiently find overlapping intervals for read assignment
+    #     """
+    #     # Empty list to store bucket indices instead of whole buckets
+    #     candidate_bucket_indices = []
+    #     for i, interval in enumerate(self.intervals.tree):
+    #         if self.overlap(
+    #             read_coords=(read.reference_start, read.reference_end),
+    #             int_coords=(interval.begin, interval.end),
+    #         ):
+    #             candidate_bucket_indices.append(i)
+
+    #     # Randomly select one bucket (index) to assign the read
+    #     np.random.seed(seed=self.main_seed)
+    #     if candidate_bucket_indices:
+    #         selected_bucket_index = np.random.choice(a=candidate_bucket_indices)
+    #         buckets[selected_bucket_index].append(read)
+
     def add_read_to_bucket(
         self, read: pysam.AlignedSegment, buckets: list[list[pysam.AlignedSegment]]
     ):
         """
-        Use IntervalTree to efficiently find overlapping intervals for read assignment
+        Pre-computed interval arrays are used to find reads that overlap with intervals
         """
-        # Empty list to store bucket indices instead of whole buckets
-        candidate_bucket_indices = []
-        for i, interval in enumerate(self.intervals.tree):
-            if self.overlap(
-                read_coords=(read.reference_start, read.reference_end),
-                int_coords=(interval.begin, interval.end),
-            ):
-                candidate_bucket_indices.append(i)
+        # Read coordinates
+        read_start = read.reference_start
+        read_end = read.reference_end
+
+        # Vectorized overlap detection using pre-computed arrays
+        # Two intervals overlap if: max(start1, start2) < min(end1, end2)
+        overlap_condition = np.maximum(read_start, self.interval_starts) < np.minimum(
+            read_end, self.interval_ends
+        )
+
+        # Get indices where overlap is True
+        candidate_bucket_indices = np.where(overlap_condition)[0]
 
         # Randomly select one bucket (index) to assign the read
-        np.random.seed(seed=self.main_seed)
-        if candidate_bucket_indices:
+        if len(candidate_bucket_indices) > 0:
             selected_bucket_index = np.random.choice(a=candidate_bucket_indices)
             buckets[selected_bucket_index].append(read)
 
